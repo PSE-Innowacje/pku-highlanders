@@ -92,7 +92,7 @@ export function DeclarationTypesPage() {
     }
   };
 
-  if (loading) return <p>Ładowanie...</p>;
+  if (loading) return <div className="loading">Ładowanie...</div>;
 
   return (
     <div>

@@ -131,7 +131,7 @@ export function DeclarationsDashboardPage() {
   const canFill = (status: string) => status === 'NIE_ZLOZONE' || status === 'ROBOCZE';
   const canSubmit = (status: string) => status === 'ROBOCZE';
 
-  if (loading) return <p>Ładowanie...</p>;
+  if (loading) return <div className="loading">Ładowanie...</div>;
 
   return (
     <div>
@@ -145,9 +145,10 @@ export function DeclarationsDashboardPage() {
       {error && <div className="alert alert-error">{error}</div>}
 
       {declarations.length === 0 ? (
-        <p style={{ color: '#6b7280' }}>
-          Brak oświadczeń. Kliknij "Wygeneruj oświadczenia" aby utworzyć oświadczenia na podstawie przypisanego typu kontrahenta.
-        </p>
+        <div className="empty-state">
+          <div className="empty-state-icon">&#9993;</div>
+          <p>Brak oświadczeń. Kliknij "Wygeneruj oświadczenia" aby utworzyć oświadczenia na podstawie przypisanego typu kontrahenta.</p>
+        </div>
       ) : (
         <table className="table">
           <thead>

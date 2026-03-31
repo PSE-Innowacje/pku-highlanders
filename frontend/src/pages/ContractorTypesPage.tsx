@@ -160,7 +160,7 @@ export function ContractorTypesPage() {
     name: d.name,
   }));
 
-  if (loading) return <p>Ładowanie...</p>;
+  if (loading) return <div className="loading">Ładowanie...</div>;
 
   return (
     <div>
