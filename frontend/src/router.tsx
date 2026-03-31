@@ -6,6 +6,7 @@ import { ContractorTypesPage } from './pages/ContractorTypesPage';
 import { UserContractorTypesPage } from './pages/UserContractorTypesPage';
 import { DeclarationTypesPage } from './pages/DeclarationTypesPage';
 import { DeclarationTypePreviewPage } from './pages/DeclarationTypePreviewPage';
+import { DeclarationsDashboardPage } from './pages/DeclarationsDashboardPage';
 import { AccessDeniedPage } from './pages/AccessDeniedPage';
 
 export const router = createBrowserRouter([
@@ -43,6 +44,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute requiredRole="Administrator">
             <DeclarationTypePreviewPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'declarations',
+        element: (
+          <ProtectedRoute requiredRole="Kontrahent">
+            <DeclarationsDashboardPage />
           </ProtectedRoute>
         ),
       },

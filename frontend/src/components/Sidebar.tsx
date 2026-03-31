@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
 export function Sidebar() {
-  const { isAdmin, username, logout } = useAuth();
+  const { isAdmin, isKontrahent, username, logout } = useAuth();
 
   return (
     <aside className="sidebar">
@@ -14,6 +14,15 @@ export function Sidebar() {
         <NavLink to="/" end className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
           Strona główna
         </NavLink>
+
+        {isKontrahent && (
+          <div className="nav-section">
+            <span className="nav-section-title">PKU Rozliczenia</span>
+            <NavLink to="/declarations" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
+              Lista oświadczeń
+            </NavLink>
+          </div>
+        )}
 
         {isAdmin && (
           <div className="nav-section">
