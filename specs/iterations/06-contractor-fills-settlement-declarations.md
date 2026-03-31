@@ -12,6 +12,7 @@ We want to have functionality, where user in role Kontrahent can fill settlement
 - Settlement declaration number and status cannot be edited by user
 - After clicking "Submit settlement declaration" ("Wyślij oświadczenie"), where all required fields are filled, a JSON will be generated and dowloaded and status will change to "Złożone". This action is allowed only in status "Robocze"
 - User in role Administrator cannot see this view
+- When given action is not allowed in some status, buttons should be inactive
 
 ## Acceptance criteria
 - user in role Kontrahent after logging in can go the "Settlement declarations dashboard" and "Fill settlement declaration"
