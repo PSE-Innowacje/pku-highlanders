@@ -10,11 +10,18 @@ async function authHeaders(): Promise<HeadersInit> {
   };
 }
 
+export interface DeclarationTypeRef {
+  id: number;
+  code: string;
+  name: string;
+}
+
 export interface ContractorType {
   id: number;
   symbol: string;
   name: string;
   system: boolean;
+  declarationTypes: DeclarationTypeRef[];
 }
 
 export async function fetchContractorTypes(): Promise<ContractorType[]> {
@@ -58,4 +65,20 @@ export async function deleteContractorType(id: number): Promise<void> {
     const err = await res.json();
     throw new Error(err.message || `Błąd: ${res.status}`);
   }
+}
+
+export async function updateContractorTypeDeclarations(
+  id: number,
+  declarationTypeIds: number[]
+): Promise<ContractorType> {
+  const res = await fetch(`${BASE}/${id}/declaration-types`, {
+    method: 'PUT',
+    headers: await authHeaders(),
+    body: JSON.stringify({ declarationTypeIds }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || `Błąd: ${res.status}`);
+  }
+  return res.json();
 }

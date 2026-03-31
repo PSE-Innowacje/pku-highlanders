@@ -5,6 +5,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import pl.pse.pku.declarationtype.DeclarationTypeRepository;
 import pl.pse.pku.exception.BusinessException;
 import pl.pse.pku.exception.ResourceNotFoundException;
 
@@ -13,11 +14,12 @@ import pl.pse.pku.exception.ResourceNotFoundException;
 public class ContractorTypeService {
 
     private final ContractorTypeRepository repository;
+    private final DeclarationTypeRepository declarationTypeRepository;
 
     @Transactional(readOnly = true)
-    public List<ContractorTypeDto> findAll() {
+    public List<ContractorTypeWithDeclarationsDto> findAll() {
         return repository.findAll().stream()
-            .map(this::toDto)
+            .map(this::toFullDto)
             .toList();
     }
 
@@ -55,7 +57,30 @@ public class ContractorTypeService {
         repository.delete(entity);
     }
 
+    @Transactional
+    public ContractorTypeWithDeclarationsDto updateDeclarationTypes(Long id, List<Long> declarationTypeIds) {
+        var entity = repository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Nie znaleziono typu kontrahenta o id " + id));
+
+        var declarationTypes = declarationTypeRepository.findAllById(declarationTypeIds);
+        if (declarationTypes.size() != declarationTypeIds.size()) {
+            throw new ResourceNotFoundException("Niektóre typy oświadczeń nie zostały znalezione");
+        }
+
+        entity.getDeclarationTypes().clear();
+        entity.getDeclarationTypes().addAll(declarationTypes);
+        return toFullDto(repository.save(entity));
+    }
+
     private ContractorTypeDto toDto(ContractorType entity) {
         return new ContractorTypeDto(entity.getId(), entity.getSymbol(), entity.getName(), entity.isSystem());
+    }
+
+    private ContractorTypeWithDeclarationsDto toFullDto(ContractorType entity) {
+        var declRefs = entity.getDeclarationTypes().stream()
+            .map(dt -> new DeclarationTypeRefDto(dt.getId(), dt.getCode(), dt.getName()))
+            .toList();
+        return new ContractorTypeWithDeclarationsDto(
+            entity.getId(), entity.getSymbol(), entity.getName(), entity.isSystem(), declRefs);
     }
 }

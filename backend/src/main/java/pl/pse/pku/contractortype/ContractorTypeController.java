@@ -15,7 +15,7 @@ public class ContractorTypeController {
     private final ContractorTypeService service;
 
     @GetMapping
-    public List<ContractorTypeDto> findAll() {
+    public List<ContractorTypeWithDeclarationsDto> findAll() {
         return service.findAll();
     }
 
@@ -34,5 +34,12 @@ public class ContractorTypeController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {
         service.delete(id);
+    }
+
+    @PutMapping("/{id}/declaration-types")
+    public ContractorTypeWithDeclarationsDto updateDeclarationTypes(
+            @PathVariable Long id,
+            @RequestBody UpdateDeclarationTypesRequest request) {
+        return service.updateDeclarationTypes(id, request.declarationTypeIds());
     }
 }

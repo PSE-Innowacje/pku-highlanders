@@ -18,14 +18,14 @@ export function Sidebar() {
         {isAdmin && (
           <div className="nav-section">
             <span className="nav-section-title">Administracja</span>
+            <NavLink to="/admin/declaration-types" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
+              Typy oświadczeń
+            </NavLink>
             <NavLink to="/admin/contractor-types" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
               Typy kontrahentów
             </NavLink>
             <NavLink to="/admin/user-contractor-types" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
               Przypisanie typów
-            </NavLink>
-            <NavLink to="/admin/declaration-types" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
-              Typy oświadczeń
             </NavLink>
           </div>
         )}
