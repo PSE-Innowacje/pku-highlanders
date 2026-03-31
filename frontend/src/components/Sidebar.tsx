@@ -21,6 +21,9 @@ export function Sidebar() {
             <NavLink to="/admin/contractor-types" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
               Typy kontrahentów
             </NavLink>
+            <NavLink to="/admin/user-contractor-types" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
+              Przypisanie typów
+            </NavLink>
           </div>
         )}
       </nav>

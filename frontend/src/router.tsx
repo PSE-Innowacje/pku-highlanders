@@ -3,6 +3,7 @@ import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { DashboardPage } from './pages/DashboardPage';
 import { ContractorTypesPage } from './pages/ContractorTypesPage';
+import { UserContractorTypesPage } from './pages/UserContractorTypesPage';
 import { AccessDeniedPage } from './pages/AccessDeniedPage';
 
 export const router = createBrowserRouter([
@@ -16,6 +17,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute requiredRole="Administrator">
             <ContractorTypesPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'admin/user-contractor-types',
+        element: (
+          <ProtectedRoute requiredRole="Administrator">
+            <UserContractorTypesPage />
           </ProtectedRoute>
         ),
       },

@@ -10,10 +10,16 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
-
   security:
     oauth2:
       resourceserver:
         jwt:
           issuer-uri: http://localhost:8180/realms/pku
           jwk-set-uri: http://localhost:8180/realms/pku/protocol/openid-connect/certs
+
+keycloak:
+  admin:
+    server-url: http://localhost:8180
+    realm: pku
+    username: admin
+    password: admin
