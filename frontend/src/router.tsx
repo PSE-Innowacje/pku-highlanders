@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { DashboardPage } from './pages/DashboardPage';
@@ -47,6 +47,7 @@ export const router = createBrowserRouter([
         ),
       },
       { path: 'access-denied', element: <AccessDeniedPage /> },
+      { path: '*', element: <Navigate to="/" replace /> },
     ],
   },
 ]);
