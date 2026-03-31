@@ -1,0 +1,115 @@
+{
+  "realm": "pku",
+  "enabled": true,
+  "registrationAllowed": false,
+  "resetPasswordAllowed": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "sslRequired": "none",
+  "roles": {
+    "realm": [
+      {
+        "name": "Administrator",
+        "description": "Administrator role - manages users, templates, schedules"
+      },
+      {
+        "name": "Kontrahent",
+        "description": "Kontrahent role - submits declarations"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "pku-frontend",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": [
+        "http://localhost:5173/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5173"
+      ],
+      "protocol": "openid-connect",
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5173/*"
+      }
+    }
+  ],
+  "users": [
+    {
+      "username": "admin@pse.pl",
+      "email": "admin@pse.pl",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Admin",
+      "lastName": "PSE",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "Administrator"
+      ]
+    },
+    {
+      "username": "jan.kowalski@tauron.pl",
+      "email": "jan.kowalski@tauron.pl",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Jan",
+      "lastName": "Kowalski",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "jan123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "Kontrahent"
+      ]
+    },
+    {
+      "username": "grzegorz.nowak@pge.pl",
+      "email": "grzegorz.nowak@pge.pl",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Grzegorz",
+      "lastName": "Nowak",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "grzesiu123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "Kontrahent"
+      ]
+    },
+    {
+      "username": "anna.kwiatkowska",
+      "email": "anna.kwiatkowska@pku.pl",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Anna",
+      "lastName": "Kwiatkowska",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "ania123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "Kontrahent"
+      ]
+    }
+  ]
+}

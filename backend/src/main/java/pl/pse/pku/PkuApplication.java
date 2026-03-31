@@ -1,0 +1,13 @@
+package pl.pse.pku;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class PkuApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(PkuApplication.class, args);
+	}
+
+}

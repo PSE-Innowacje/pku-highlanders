@@ -153,19 +153,6 @@
 - Use route.lazy() for route-level code splitting with automatic loading states
 - Implement shouldRevalidate functions to control when data revalidation happens after navigation
 
-#### REDUX
-
-- Use Redux Toolkit (RTK) instead of plain Redux to reduce boilerplate code
-- Implement the slice pattern for organizing related state, reducers, and actions
-- Use RTK Query for data fetching to eliminate manual loading state management
-- Prefer createSelector for memoized selectors to prevent unnecessary recalculations
-- Normalize complex state structures using a flat entities approach with IDs as references
-- Implement middleware selectively and avoid overusing thunks for simple state updates
-- Use the listener middleware for complex side effects instead of thunks where appropriate
-- Leverage createEntityAdapter for standardized CRUD operations
-- Implement Redux DevTools for debugging in development environments
-- Use typed hooks (useAppDispatch, useAppSelector) with TypeScript for type safety
-
 #### REACT_QUERY
 
 - Use TanStack Query (formerly React Query) with appropriate staleTime and gcTime based on data freshness requirements
@@ -178,19 +165,6 @@
 - Implement mutations with onMutate, onError, and onSettled for robust error handling
 - Use Query Keys structuring pattern ([entity, params]) for better organization and automatic refetching
 - Implement query invalidation strategies to keep data fresh after mutations
-
-#### NEXT_JS
-
-- Use App Router and Server Components for improved performance and SEO
-- Implement route handlers for API endpoints instead of the pages/api directory
-- Use server actions for form handling and data mutations from Server Components
-- Leverage Next.js Image component with proper sizing for core web vitals optimization
-- Implement the Metadata API for dynamic SEO optimization
-- Use React Server Components for {{data_fetching_operations}} to reduce client-side JavaScript
-- Implement Streaming and Suspense for improved loading states
-- Use the new Link component without requiring a child <a> tag
-- Leverage parallel routes for complex layouts and parallel data fetching
-- Implement intercepting routes for modal patterns and nested UIs
 
 #### ZUSTAND
 
@@ -221,31 +195,6 @@
 - Use responsive variants (sm:, md:, lg:, etc.) for adaptive designs
 - Leverage state variants (hover:, focus:, active:, etc.) for interactive elements
 
-#### STYLED_COMPONENTS
-
-- Use the ThemeProvider for consistent theming across components
-- Implement the css helper for sharing styles between components
-- Use props for conditional styling within template literals
-- Leverage the createGlobalStyle for global styling
-- Implement attrs method to pass HTML attributes to the underlying DOM elements
-- Use the as prop for dynamic component rendering
-- Leverage styled(Component) syntax for extending existing components
-- Implement the css prop for one-off styling needs
-- Use the & character for nesting selectors
-- Leverage the keyframes helper for animations
-
-#### SCSS
-
-- Use the ThemeProvider for consistent theming across components
-- Implement the css helper for sharing styles between components
-- Use props for conditional styling within template literals
-- Leverage the createGlobalStyle for global styling
-- Implement attrs method to pass HTML attributes to the underlying DOM elements
-- Use the as prop for dynamic component rendering
-- Leverage styled(Component) syntax for extending existing components
-- Implement the css prop for one-off styling needs
-- Use the & character for nesting selectors
-- Leverage the keyframes helper for animations
 
 ## BACKEND
 
