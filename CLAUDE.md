@@ -304,3 +304,8 @@
 #### UI
 
 - UI should by default use Polish language
+
+
+#### Unit tests
+
+- write unit tests for backend code, use Spock framework

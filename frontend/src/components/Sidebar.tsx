@@ -24,6 +24,9 @@ export function Sidebar() {
             <NavLink to="/admin/user-contractor-types" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
               Przypisanie typów
             </NavLink>
+            <NavLink to="/admin/declaration-types" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
+              Typy oświadczeń
+            </NavLink>
           </div>
         )}
       </nav>
