@@ -1,6 +1,8 @@
 package pl.pse.pku.declaration;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -37,4 +39,11 @@ public class Declaration {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    @Convert(converter = MapToJsonConverter.class)
+    @Column(name = "field_values", columnDefinition = "text")
+    private Map<String, String> fieldValues = new HashMap<>();
+
+    @Column(name = "comment", length = 1000)
+    private String comment;
 }

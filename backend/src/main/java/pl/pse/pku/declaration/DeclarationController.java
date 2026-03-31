@@ -1,6 +1,7 @@
 package pl.pse.pku.declaration;
 
 import java.util.List;
+import java.util.Map;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -17,6 +18,24 @@ public class DeclarationController {
     @GetMapping
     public List<DeclarationDto> getMyDeclarations(@AuthenticationPrincipal Jwt jwt) {
         return service.getMyDeclarations(jwt.getSubject());
+    }
+
+    @GetMapping("/{id}")
+    public DeclarationDetailDto getDeclarationDetail(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
+        return service.getDeclarationDetail(id, jwt.getSubject());
+    }
+
+    @PutMapping("/{id}")
+    public DeclarationDetailDto saveDeclaration(
+            @PathVariable Long id,
+            @RequestBody SaveDeclarationRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return service.saveDeclaration(id, jwt.getSubject(), request.fieldValues(), request.comment());
+    }
+
+    @PostMapping("/{id}/submit")
+    public Map<String, Object> submitDeclaration(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
+        return service.submitDeclaration(id, jwt.getSubject());
     }
 
     @PostMapping("/generate")
