@@ -300,3 +300,7 @@
 - Implement explicit waits instead of implicit waits for {{dynamic_elements}}
 - Use the WebDriverWait class for waiting for elements to be ready
 
+
+#### UI
+
+- UI should by default use Polish language
