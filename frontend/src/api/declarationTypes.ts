@@ -48,3 +48,30 @@ export async function fetchDeclarationTypeByCode(code: string): Promise<Declarat
   if (!res.ok) throw new Error(`Błąd pobierania: ${res.status}`);
   return res.json();
 }
+
+export interface ScheduleEntry {
+  id: number | null;
+  position: string;
+  day: number;
+  hour: number;
+  dayType: string;
+}
+
+export async function fetchScheduleEntries(code: string): Promise<ScheduleEntry[]> {
+  const res = await fetch(`${BASE}/${code}/schedule`, { headers: await authHeaders() });
+  if (!res.ok) throw new Error(`Błąd pobierania: ${res.status}`);
+  return res.json();
+}
+
+export async function saveScheduleEntries(code: string, entries: ScheduleEntry[]): Promise<ScheduleEntry[]> {
+  const res = await fetch(`${BASE}/${code}/schedule`, {
+    method: 'PUT',
+    headers: await authHeaders(),
+    body: JSON.stringify({ entries }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || `Błąd: ${res.status}`);
+  }
+  return res.json();
+}

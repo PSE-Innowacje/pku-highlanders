@@ -21,4 +21,16 @@ public class DeclarationTypeController {
     public DeclarationTypeDetailDto findByCode(@PathVariable String code) {
         return service.findByCode(code);
     }
+
+    @GetMapping("/{code}/schedule")
+    public List<ScheduleEntryDto> getScheduleEntries(@PathVariable String code) {
+        return service.getScheduleEntries(code);
+    }
+
+    @PutMapping("/{code}/schedule")
+    public List<ScheduleEntryDto> saveScheduleEntries(
+            @PathVariable String code,
+            @RequestBody SaveScheduleRequest request) {
+        return service.saveScheduleEntries(code, request.entries());
+    }
 }

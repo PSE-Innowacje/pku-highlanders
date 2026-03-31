@@ -36,4 +36,8 @@ public class DeclarationType {
     @OneToMany(mappedBy = "declarationType", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("id ASC")
     private List<DeclarationTypeField> fields = new ArrayList<>();
+
+    @OneToMany(mappedBy = "declarationType", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("id ASC")
+    private List<ScheduleEntry> scheduleEntries = new ArrayList<>();
 }
