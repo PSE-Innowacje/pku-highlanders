@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   fetchMyDeclarations,
   fetchDeclarationDetail,
@@ -8,6 +8,7 @@ import {
   type Declaration,
   type DeclarationDetail,
 } from '../api/declarations';
+import { buildFormulaMap, recalculate, getInputProps } from '../utils/fieldFormulas';
 
 export function DeclarationsDashboardPage() {
   const [declarations, setDeclarations] = useState<Declaration[]>([]);
@@ -22,6 +23,11 @@ export function DeclarationsDashboardPage() {
   const [comment, setComment] = useState('');
   const [saving, setSaving] = useState(false);
   const [fillError, setFillError] = useState<string | null>(null);
+
+  const formulaMap = useMemo(
+    () => detail ? buildFormulaMap(detail.fields) : new Map(),
+    [detail]
+  );
 
   const loadDeclarations = async () => {
     try {
@@ -58,7 +64,9 @@ export function DeclarationsDashboardPage() {
     try {
       const d = await fetchDeclarationDetail(id);
       setDetail(d);
-      setFieldValues(d.fieldValues ?? {});
+      const initialValues = d.fieldValues ?? {};
+      const fm = buildFormulaMap(d.fields);
+      setFieldValues(recalculate(initialValues, fm, d.fields));
       setComment(d.comment ?? '');
       setShowFillModal(true);
     } catch (e) {
@@ -73,7 +81,9 @@ export function DeclarationsDashboardPage() {
   };
 
   const handleFieldChange = (fieldCode: string, value: string) => {
-    setFieldValues(prev => ({ ...prev, [fieldCode]: value }));
+    if (!detail) return;
+    const updated = { ...fieldValues, [fieldCode]: value };
+    setFieldValues(recalculate(updated, formulaMap, detail.fields));
   };
 
   const handleSave = async () => {
@@ -96,7 +106,6 @@ export function DeclarationsDashboardPage() {
     setError(null);
     try {
       const json = await submitDeclaration(id);
-      // Download JSON file
       const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -206,27 +215,35 @@ export function DeclarationsDashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {detail.fields.map(f => (
-                  <tr key={f.fieldCode}>
-                    <td>{f.position}</td>
-                    <td><code>{f.fieldCode}</code></td>
-                    <td>
-                      {f.fieldName}
-                      {f.required && <span style={{ color: 'var(--danger)', marginLeft: '0.25rem' }}>*</span>}
-                    </td>
-                    <td>
-                      <input
-                        type={f.dataType.startsWith('Number') ? 'number' : 'text'}
-                        step={f.dataType.includes(',') ? '0.001' : undefined}
-                        className="field-input"
-                        value={fieldValues[f.fieldCode] ?? ''}
-                        onChange={e => handleFieldChange(f.fieldCode, e.target.value)}
-                        placeholder={f.dataType}
-                      />
-                    </td>
-                    <td>{f.unit}</td>
-                  </tr>
-                ))}
+                {detail.fields.map(f => {
+                  const isComputed = formulaMap.has(f.fieldCode);
+                  const inputProps = getInputProps(f.dataType);
+                  return (
+                    <tr key={f.fieldCode}>
+                      <td>{f.position}</td>
+                      <td><code>{f.fieldCode}</code></td>
+                      <td>
+                        {f.fieldName}
+                        {f.required && <span style={{ color: 'var(--danger)', marginLeft: '0.25rem' }}>*</span>}
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          step={inputProps.step}
+                          min={inputProps.min}
+                          max={inputProps.max}
+                          className={`field-input ${isComputed ? 'field-computed' : ''}`}
+                          value={fieldValues[f.fieldCode] ?? ''}
+                          onChange={e => handleFieldChange(f.fieldCode, e.target.value)}
+                          readOnly={isComputed}
+                          tabIndex={isComputed ? -1 : undefined}
+                          placeholder={isComputed ? 'Auto' : f.dataType}
+                        />
+                      </td>
+                      <td>{f.unit}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
 

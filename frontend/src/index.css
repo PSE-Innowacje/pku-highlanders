@@ -404,6 +404,13 @@ h2 {
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
 }
 
+.field-computed {
+  background: #f3f4f6;
+  color: #6b7280;
+  cursor: not-allowed;
+  font-weight: 600;
+}
+
 .field-textarea {
   width: 100%;
   padding: 0.5rem 0.75rem;
