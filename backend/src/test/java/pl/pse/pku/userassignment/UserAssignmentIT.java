@@ -40,10 +40,10 @@ class UserAssignmentIT extends AbstractIT {
         mockMvc.perform(get("/api/admin/kontrahent-users").with(adminJwt()))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$", hasSize(2)))
-            .andExpect(jsonPath("$[?(@.keycloakUserId == '%s')].assignedType.symbol".formatted(USER_ID))
-                .value("OSDp"))
-            .andExpect(jsonPath("$[?(@.keycloakUserId == '%s')].assignedType".formatted(USER2_ID),
-                hasItem(nullValue())));
+            .andExpect(jsonPath("$[?(@.keycloakUserId == '%s')].assignedTypes[0].symbol".formatted(USER_ID))
+                .value(hasItem("OSDp")))
+            .andExpect(jsonPath("$[?(@.keycloakUserId == '%s')].assignedTypes".formatted(USER2_ID),
+                contains(empty())));
     }
 
     @Test
@@ -60,7 +60,7 @@ class UserAssignmentIT extends AbstractIT {
             .andExpect(status().isForbidden());
     }
 
-    // PUT /api/admin/kontrahent-users/{userId}/contractor-type
+    // PUT /api/admin/kontrahent-users/{userId}/contractor-types
 
     @Test
     void updateAssignment_createsNewAssignment() throws Exception {
@@ -69,15 +69,15 @@ class UserAssignmentIT extends AbstractIT {
             new KeycloakUserDto(USER_ID, "jkowalski", "Jan", "Kowalski", "jan@example.com")
         ));
 
-        mockMvc.perform(put("/api/admin/kontrahent-users/%s/contractor-type".formatted(USER_ID))
+        mockMvc.perform(put("/api/admin/kontrahent-users/%s/contractor-types".formatted(USER_ID))
                 .with(adminJwt())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    {"contractorTypeId": %d}
+                    {"contractorTypeIds": [%d]}
                     """.formatted(contractorType.getId())))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.keycloakUserId").value(USER_ID))
-            .andExpect(jsonPath("$.assignedType.symbol").value("OSDp"));
+            .andExpect(jsonPath("$.assignedTypes[0].symbol").value("OSDp"));
     }
 
     @Test
@@ -90,18 +90,18 @@ class UserAssignmentIT extends AbstractIT {
             new KeycloakUserDto(USER_ID, "jkowalski", "Jan", "Kowalski", "jan@example.com")
         ));
 
-        mockMvc.perform(put("/api/admin/kontrahent-users/%s/contractor-type".formatted(USER_ID))
+        mockMvc.perform(put("/api/admin/kontrahent-users/%s/contractor-types".formatted(USER_ID))
                 .with(adminJwt())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    {"contractorTypeId": %d}
+                    {"contractorTypeIds": [%d]}
                     """.formatted(ok.getId())))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.assignedType.symbol").value("OK"));
+            .andExpect(jsonPath("$.assignedTypes[0].symbol").value("OK"));
     }
 
     @Test
-    void updateAssignment_nullContractorTypeId_removesAssignment() throws Exception {
+    void updateAssignment_emptyList_removesAllAssignments() throws Exception {
         var osdp = seededType("OSDp");
         assignmentRepository.saveAndFlush(new UserContractorTypeAssignment(null, USER_ID, osdp));
 
@@ -109,23 +109,25 @@ class UserAssignmentIT extends AbstractIT {
             new KeycloakUserDto(USER_ID, "jkowalski", "Jan", "Kowalski", "jan@example.com")
         ));
 
-        mockMvc.perform(put("/api/admin/kontrahent-users/%s/contractor-type".formatted(USER_ID))
+        mockMvc.perform(put("/api/admin/kontrahent-users/%s/contractor-types".formatted(USER_ID))
                 .with(adminJwt())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    {"contractorTypeId": null}
+                    {"contractorTypeIds": []}
                     """))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.assignedType").value(nullValue()));
+            .andExpect(jsonPath("$.assignedTypes", empty()));
     }
 
     @Test
-    void updateAssignment_nonExistentContractorType_returns404() throws Exception {
-        mockMvc.perform(put("/api/admin/kontrahent-users/%s/contractor-type".formatted(USER_ID))
+    void updateAssignment_userNotInKeycloak_returns404() throws Exception {
+        when(keycloakAdminService.getKontrahentUsers()).thenReturn(List.of());
+
+        mockMvc.perform(put("/api/admin/kontrahent-users/%s/contractor-types".formatted(USER_ID))
                 .with(adminJwt())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    {"contractorTypeId": 99999}
+                    {"contractorTypeIds": []}
                     """))
             .andExpect(status().isNotFound());
     }

@@ -1,4 +1,4 @@
-package pl.pse.pku.contractordata;
+package pl.pse.pku.seeder;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -10,7 +10,8 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
+import pl.pse.pku.contractordata.ContractorData;
+import pl.pse.pku.contractordata.ContractorDataRepository;
 import pl.pse.pku.contractortype.ContractorType;
 import pl.pse.pku.contractortype.ContractorTypeRepository;
 import pl.pse.pku.keycloak.KeycloakAdminService;
@@ -85,7 +86,6 @@ public class ContractorDataSeeder implements ApplicationRunner {
     );
 
     @Override
-    @Transactional
     public void run(ApplicationArguments args) {
         if (contractorDataRepository.count() > 0) {
             return;

@@ -25,7 +25,7 @@ class DeclarationServiceSpec extends Specification {
     // --- helpers ---
 
     private DeclarationType buildDeclarationType(boolean hasComment = false, List<DeclarationTypeField> fields = []) {
-        def dt = new DeclarationType(1L, "OP.01", "Oświadczenie", "OSDp", hasComment, fields)
+        def dt = new DeclarationType(1L, "OP.01", "Oświadczenie", "OSDp", hasComment, fields, [])
         fields.each { it.declarationType = dt }
         dt
     }
@@ -235,7 +235,7 @@ class DeclarationServiceSpec extends Specification {
         contractorType.declarationTypes = [dt]
         def assignment = new UserContractorTypeAssignment(1L, USER_ID, contractorType)
 
-        assignmentRepository.findByKeycloakUserId(USER_ID) >> Optional.of(assignment)
+        assignmentRepository.findAllByKeycloakUserId(USER_ID) >> [assignment]
         declarationRepository.existsByKeycloakUserIdAndDeclarationTypeId(USER_ID, 1L) >> false
         declarationRepository.save(_) >> { Declaration d -> d }
         declarationRepository.findByKeycloakUserIdOrderByCreatedAtDesc(USER_ID) >> []
@@ -259,7 +259,7 @@ class DeclarationServiceSpec extends Specification {
         contractorType.declarationTypes = [dt]
         def assignment = new UserContractorTypeAssignment(1L, USER_ID, contractorType)
 
-        assignmentRepository.findByKeycloakUserId(USER_ID) >> Optional.of(assignment)
+        assignmentRepository.findAllByKeycloakUserId(USER_ID) >> [assignment]
         declarationRepository.existsByKeycloakUserIdAndDeclarationTypeId(USER_ID, 1L) >> true
         declarationRepository.findByKeycloakUserIdOrderByCreatedAtDesc(USER_ID) >> []
 
@@ -272,7 +272,7 @@ class DeclarationServiceSpec extends Specification {
 
     def "generateDeclarations throws BusinessException when user has no contractor type assignment"() {
         given:
-        assignmentRepository.findByKeycloakUserId(USER_ID) >> Optional.empty()
+        assignmentRepository.findAllByKeycloakUserId(USER_ID) >> []
 
         when:
         service.generateDeclarations(USER_ID)
@@ -286,7 +286,7 @@ class DeclarationServiceSpec extends Specification {
         def contractorType = new ContractorType(1L, "EMPTY", "Empty Type", false)
         contractorType.declarationTypes = []
         def assignment = new UserContractorTypeAssignment(1L, USER_ID, contractorType)
-        assignmentRepository.findByKeycloakUserId(USER_ID) >> Optional.of(assignment)
+        assignmentRepository.findAllByKeycloakUserId(USER_ID) >> [assignment]
 
         when:
         service.generateDeclarations(USER_ID)

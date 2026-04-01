@@ -18,7 +18,7 @@ class ContractorTypeServiceSpec extends Specification {
     def "findAll returns list of DTOs with mapped declaration types"() {
         given:
         def type = new ContractorType(1L, "SYM", "Name", false)
-        def dt = new DeclarationType(10L, "CODE", "DT Name", "SYM", false, [])
+        def dt = new DeclarationType(10L, "CODE", "DT Name", "SYM", false, [], [])
         type.declarationTypes = [dt]
         repository.findAll() >> [type]
 
@@ -154,7 +154,7 @@ class ContractorTypeServiceSpec extends Specification {
     def "updateDeclarationTypes replaces declaration types and returns updated DTO"() {
         given:
         def entity = new ContractorType(1L, "SYM", "Name", false)
-        def dt = new DeclarationType(10L, "CODE", "DT Name", "SYM", false, [])
+        def dt = new DeclarationType(10L, "CODE", "DT Name", "SYM", false, [], [])
         repository.findById(1L) >> Optional.of(entity)
         declarationTypeRepository.findAllById([10L]) >> [dt]
         repository.save(entity) >> entity
