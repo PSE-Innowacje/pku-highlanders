@@ -4,6 +4,7 @@ import {
   fetchDeclarationTypes,
   fetchScheduleEntries,
   saveScheduleEntries,
+  generateDeclarationsForSchedule,
   type DeclarationType,
   type ScheduleEntry,
 } from '../api/declarationTypes';
@@ -28,6 +29,8 @@ export function DeclarationTypesPage() {
   const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
   const [scheduleSaving, setScheduleSaving] = useState(false);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [generating, setGenerating] = useState<number | null>(null);
+  const [generateResult, setGenerateResult] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -75,6 +78,21 @@ export function DeclarationTypesPage() {
     setScheduleEntries(prev => prev.map((entry, i) =>
       i === index ? { ...entry, [field]: value } : entry
     ));
+  };
+
+  const handleGenerate = async (day: number) => {
+    if (!scheduleCode) return;
+    setGenerating(day);
+    setGenerateResult(null);
+    setScheduleError(null);
+    try {
+      const result = await generateDeclarationsForSchedule(scheduleCode, day);
+      setGenerateResult(`Wygenerowano ${result.generated} oświadczeń dla dnia ${day}`);
+    } catch (e) {
+      setScheduleError(e instanceof Error ? e.message : 'Nieznany błąd');
+    } finally {
+      setGenerating(null);
+    }
   };
 
   const handleSaveSchedule = async () => {
@@ -146,6 +164,7 @@ export function DeclarationTypesPage() {
             <h2>Harmonogram — {scheduleCode}</h2>
 
             {scheduleError && <div className="alert alert-error">{scheduleError}</div>}
+            {generateResult && <div className="alert alert-success" style={{ background: '#d1fae5', color: '#065f46', border: '1px solid #6ee7b7', padding: '0.5rem 1rem', borderRadius: '6px', marginBottom: '0.5rem' }}>{generateResult}</div>}
 
             <table className="table">
               <thead>
@@ -206,9 +225,18 @@ export function DeclarationTypesPage() {
                       </select>
                     </td>
                     <td>
-                      <button className="btn btn-sm btn-danger" onClick={() => removeScheduleRow(idx)}>
-                        Usuń
-                      </button>
+                      <div style={{ display: 'flex', gap: '0.25rem' }}>
+                        <button
+                          className="btn btn-sm btn-primary"
+                          onClick={() => handleGenerate(entry.day)}
+                          disabled={generating !== null || entry.id === null}
+                        >
+                          {generating === entry.day ? 'Generowanie...' : 'Wygeneruj'}
+                        </button>
+                        <button className="btn btn-sm btn-danger" onClick={() => removeScheduleRow(idx)}>
+                          Usuń
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

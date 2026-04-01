@@ -12,12 +12,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pl.pse.pku.contractordata.ContractorData;
 import pl.pse.pku.contractordata.ContractorDataRepository;
+import pl.pse.pku.contractortype.ContractorType;
+import pl.pse.pku.contractortype.ContractorTypeRepository;
 import pl.pse.pku.declarationtype.DeclarationType;
 import pl.pse.pku.declarationtype.DeclarationTypeField;
 import pl.pse.pku.declarationtype.DeclarationTypeFieldDto;
+import pl.pse.pku.declarationtype.DeclarationTypeRepository;
 import pl.pse.pku.exception.BusinessException;
 import pl.pse.pku.exception.ResourceNotFoundException;
 import pl.pse.pku.keycloak.KeycloakAdminService;
+import pl.pse.pku.userassignment.UserContractorTypeAssignment;
 import pl.pse.pku.userassignment.UserContractorTypeAssignmentRepository;
 
 @Service
@@ -27,6 +31,8 @@ public class DeclarationService {
     private final DeclarationRepository declarationRepository;
     private final UserContractorTypeAssignmentRepository assignmentRepository;
     private final ContractorDataRepository contractorDataRepository;
+    private final ContractorTypeRepository contractorTypeRepository;
+    private final DeclarationTypeRepository declarationTypeRepository;
     private final KeycloakAdminService keycloakAdminService;
 
     @Transactional(readOnly = true)
@@ -152,33 +158,41 @@ public class DeclarationService {
     }
 
     @Transactional
-    public List<DeclarationDto> generateDeclarations(String keycloakUserId) {
-        var assignment = assignmentRepository.findByKeycloakUserId(keycloakUserId)
-            .orElseThrow(() -> new BusinessException("Nie masz przypisanego typu kontrahenta"));
+    public int generateDeclarationsForSchedule(String declarationTypeCode, int scheduleDay) {
+        DeclarationType dt = declarationTypeRepository.findByCode(declarationTypeCode)
+            .orElseThrow(() -> new ResourceNotFoundException("Nie znaleziono typu oświadczenia: " + declarationTypeCode));
 
-        var contractorType = assignment.getContractorType();
-        var declarationTypes = contractorType.getDeclarationTypes();
-
-        if (declarationTypes.isEmpty()) {
-            throw new BusinessException("Typ kontrahenta '" + contractorType.getSymbol() + "' nie ma przypisanych typów oświadczeń");
+        List<ContractorType> contractorTypes = contractorTypeRepository.findByDeclarationTypeId(dt.getId());
+        if (contractorTypes.isEmpty()) {
+            return 0;
         }
 
+        // Collect all users assigned to these contractor types
+        List<String> contractorTypeIds = contractorTypes.stream()
+            .map(ct -> ct.getId().toString())
+            .toList();
+
+        int created = 0;
         LocalDateTime now = LocalDateTime.now();
-        for (DeclarationType dt : declarationTypes) {
-            if (!declarationRepository.existsByKeycloakUserIdAndDeclarationTypeId(keycloakUserId, dt.getId())) {
-                var declaration = new Declaration();
-                declaration.setDeclarationNumber(generateNumber(dt, contractorType.getSymbol()));
-                declaration.setStatus(DeclarationStatus.NIE_ZLOZONE);
-                declaration.setKeycloakUserId(keycloakUserId);
-                declaration.setDeclarationType(dt);
-                declaration.setCreatedAt(now);
-                declarationRepository.save(declaration);
+
+        for (ContractorType ct : contractorTypes) {
+            List<UserContractorTypeAssignment> assignments = assignmentRepository.findByContractorTypeId(ct.getId());
+            for (UserContractorTypeAssignment assignment : assignments) {
+                String userId = assignment.getKeycloakUserId();
+                if (!declarationRepository.existsByKeycloakUserIdAndDeclarationTypeIdAndScheduleDay(userId, dt.getId(), scheduleDay)) {
+                    var declaration = new Declaration();
+                    declaration.setDeclarationNumber(generateNumber(dt, ct.getSymbol(), scheduleDay));
+                    declaration.setStatus(DeclarationStatus.NIE_ZLOZONE);
+                    declaration.setKeycloakUserId(userId);
+                    declaration.setDeclarationType(dt);
+                    declaration.setCreatedAt(now);
+                    declaration.setScheduleDay(scheduleDay);
+                    declarationRepository.save(declaration);
+                    created++;
+                }
             }
         }
-
-        return declarationRepository.findByKeycloakUserIdOrderByCreatedAtDesc(keycloakUserId).stream()
-            .map(this::toDto)
-            .toList();
+        return created;
     }
 
     private Declaration findUserDeclaration(Long id, String keycloakUserId) {
@@ -209,15 +223,14 @@ public class DeclarationService {
         }
     }
 
-    private String generateNumber(DeclarationType dt, String contractorSymbol) {
+    private String generateNumber(DeclarationType dt, String contractorSymbol, int scheduleDay) {
         String feeType = dt.getCode().split("\\.")[0];
         int year = LocalDateTime.now().getYear();
         int month = LocalDateTime.now().getMonthValue();
-        int subperiod = 1;
         int version = 1;
         int rand = ThreadLocalRandom.current().nextInt(100, 999);
         return String.format("OSW/%s/%s/%d/%02d/%02d/%02d/%03d",
-            feeType, contractorSymbol, year, month, subperiod, version, rand);
+            feeType, contractorSymbol, year, month, scheduleDay, version, rand);
     }
 
     private String statusLabel(DeclarationStatus status) {

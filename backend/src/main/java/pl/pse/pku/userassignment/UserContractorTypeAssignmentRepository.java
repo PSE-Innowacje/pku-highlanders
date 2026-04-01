@@ -9,4 +9,5 @@ public interface UserContractorTypeAssignmentRepository extends JpaRepository<Us
     Optional<UserContractorTypeAssignment> findByKeycloakUserId(String keycloakUserId);
     List<UserContractorTypeAssignment> findByKeycloakUserIdIn(List<String> keycloakUserIds);
     void deleteByKeycloakUserId(String keycloakUserId);
+    List<UserContractorTypeAssignment> findByContractorTypeId(Long contractorTypeId);
 }

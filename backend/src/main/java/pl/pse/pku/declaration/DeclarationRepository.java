@@ -7,4 +7,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface DeclarationRepository extends JpaRepository<Declaration, Long> {
     List<Declaration> findByKeycloakUserIdOrderByCreatedAtDesc(String keycloakUserId);
     boolean existsByKeycloakUserIdAndDeclarationTypeId(String keycloakUserId, Long declarationTypeId);
+    boolean existsByKeycloakUserIdAndDeclarationTypeIdAndScheduleDay(String keycloakUserId, Long declarationTypeId, Integer scheduleDay);
 }

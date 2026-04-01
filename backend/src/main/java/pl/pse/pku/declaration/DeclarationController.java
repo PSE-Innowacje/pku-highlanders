@@ -37,9 +37,4 @@ public class DeclarationController {
     public Map<String, Object> submitDeclaration(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
         return service.submitDeclaration(id, jwt.getSubject());
     }
-
-    @PostMapping("/generate")
-    public List<DeclarationDto> generateDeclarations(@AuthenticationPrincipal Jwt jwt) {
-        return service.generateDeclarations(jwt.getSubject());
-    }
 }

@@ -84,14 +84,3 @@ export async function submitDeclaration(id: number): Promise<Record<string, unkn
   return res.json();
 }
 
-export async function generateDeclarations(): Promise<Declaration[]> {
-  const res = await fetch(`${BASE}/generate`, {
-    method: 'POST',
-    headers: await authHeaders(),
-  });
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.message || `Błąd: ${res.status}`);
-  }
-  return res.json();
-}

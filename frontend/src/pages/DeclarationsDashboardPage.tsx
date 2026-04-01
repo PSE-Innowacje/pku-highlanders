@@ -4,7 +4,6 @@ import {
   fetchDeclarationDetail,
   saveDeclaration,
   submitDeclaration,
-  generateDeclarations,
   type Declaration,
   type DeclarationDetail,
 } from '../api/declarations';
@@ -17,7 +16,6 @@ interface Props {
 export function DeclarationsDashboardPage({ filter }: Props) {
   const [allDeclarations, setAllDeclarations] = useState<Declaration[]>([]);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Modal state
@@ -62,19 +60,6 @@ export function DeclarationsDashboardPage({ filter }: Props) {
   useEffect(() => {
     loadDeclarations();
   }, []);
-
-  const handleGenerate = async () => {
-    setGenerating(true);
-    setError(null);
-    try {
-      const data = await generateDeclarations();
-      setAllDeclarations(data);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Nieznany błąd');
-    } finally {
-      setGenerating(false);
-    }
-  };
 
   const openModal = async (id: number, mode: 'fill' | 'view') => {
     setFillError(null);
@@ -172,11 +157,6 @@ export function DeclarationsDashboardPage({ filter }: Props) {
     <div>
       <div className="page-header">
         <h1>{isPending ? 'Lista oświadczeń - niezłożone' : 'Lista oświadczeń - złożone'}</h1>
-        {isPending && (
-          <button className="btn btn-primary" onClick={handleGenerate} disabled={generating}>
-            {generating ? 'Generowanie...' : 'Wygeneruj oświadczenia'}
-          </button>
-        )}
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
@@ -185,7 +165,7 @@ export function DeclarationsDashboardPage({ filter }: Props) {
         <div className="empty-state">
           <div className="empty-state-icon">&#9993;</div>
           <p>{isPending
-            ? 'Brak niezłożonych oświadczeń. Kliknij "Wygeneruj oświadczenia" aby utworzyć oświadczenia na podstawie przypisanego typu kontrahenta.'
+            ? 'Brak niezłożonych oświadczeń.'
             : 'Brak złożonych oświadczeń.'
           }</p>
         </div>

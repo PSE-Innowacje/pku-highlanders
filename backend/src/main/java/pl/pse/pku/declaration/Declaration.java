@@ -46,4 +46,7 @@ public class Declaration {
 
     @Column(name = "comment", length = 1000)
     private String comment;
+
+    @Column(name = "schedule_day")
+    private Integer scheduleDay;
 }
