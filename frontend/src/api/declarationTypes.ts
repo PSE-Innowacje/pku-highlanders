@@ -75,3 +75,19 @@ export async function saveScheduleEntries(code: string, entries: ScheduleEntry[]
   }
   return res.json();
 }
+
+export async function generateDeclarationsForSchedule(
+  code: string,
+  scheduleDay: number
+): Promise<{ generated: number }> {
+  const res = await fetch(`${BASE}/${code}/generate`, {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify({ scheduleDay }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || `Błąd: ${res.status}`);
+  }
+  return res.json();
+}

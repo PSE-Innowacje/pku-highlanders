@@ -1,7 +1,25 @@
 import { useEffect, useState } from 'react';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
+import TextField from '@mui/material/TextField';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import FormControl from '@mui/material/FormControl';
+import Paper from '@mui/material/Paper';
+import Alert from '@mui/material/Alert';
+import Chip from '@mui/material/Chip';
+import Tooltip from '@mui/material/Tooltip';
+import Fade from '@mui/material/Fade';
+import CircularProgress from '@mui/material/CircularProgress';
+import SaveIcon from '@mui/icons-material/Save';
+import InfoIcon from '@mui/icons-material/Info';
+import AppTable from '../components/AppTable';
+import AppModal from '../components/AppModal';
+import type { Column } from '../components/AppTable';
 import {
   fetchKontrahentUsers,
-  updateUserAssignments,
+  updateUserAssignment,
   updateAgreementNumber,
   type KontrahentUser,
 } from '../api/kontrahentUsers';
@@ -13,7 +31,7 @@ export function UserContractorTypesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [typeSelections, setTypeSelections] = useState<Map<string, Set<number>>>(new Map());
+  const [typeSelections, setTypeSelections] = useState<Map<string, number | null>>(new Map());
   const [agreementInputs, setAgreementInputs] = useState<Map<string, string>>(new Map());
   const [saving, setSaving] = useState<Set<string>>(new Set());
   const [saveSuccess, setSaveSuccess] = useState<Set<string>>(new Set());
@@ -31,10 +49,10 @@ export function UserContractorTypesPage() {
       setUsers(usersData);
       setAllTypes(typesData);
 
-      const typeSels = new Map<string, Set<number>>();
+      const typeSels = new Map<string, number | null>();
       const agrInputs = new Map<string, string>();
       usersData.forEach(user => {
-        typeSels.set(user.keycloakUserId, new Set(user.assignedTypes.map(t => t.id)));
+        typeSels.set(user.keycloakUserId, user.assignedType?.id ?? null);
         agrInputs.set(user.keycloakUserId, user.contractorData?.agreementNumber ?? '');
       });
       setTypeSelections(typeSels);
@@ -50,16 +68,11 @@ export function UserContractorTypesPage() {
     loadData();
   }, []);
 
-  const handleTypeToggle = (userId: string, typeId: number) => {
+  const handleTypeSelect = (userId: string, value: string) => {
+    const typeId = value === '' ? null : Number(value);
     setTypeSelections(prev => {
       const next = new Map(prev);
-      const current = new Set(prev.get(userId) ?? []);
-      if (current.has(typeId)) {
-        current.delete(typeId);
-      } else {
-        current.add(typeId);
-      }
-      next.set(userId, current);
+      next.set(userId, typeId);
       return next;
     });
     clearSuccess(userId);
@@ -83,36 +96,34 @@ export function UserContractorTypesPage() {
   };
 
   const hasChanges = (user: KontrahentUser): boolean => {
-    const currentTypeIds = new Set(user.assignedTypes.map(t => t.id));
-    const selectedTypeIds = typeSelections.get(user.keycloakUserId) ?? new Set();
-    const typesChanged = currentTypeIds.size !== selectedTypeIds.size ||
-      [...currentTypeIds].some(id => !selectedTypeIds.has(id));
+    const currentTypeId = user.assignedType?.id ?? null;
+    const selectedTypeId = typeSelections.get(user.keycloakUserId) ?? null;
+    const typeChanged = currentTypeId !== selectedTypeId;
 
     const currentAgreement = user.contractorData?.agreementNumber ?? '';
     const inputAgreement = agreementInputs.get(user.keycloakUserId) ?? '';
     const agreementChanged = currentAgreement !== inputAgreement;
 
-    return typesChanged || agreementChanged;
+    return typeChanged || agreementChanged;
   };
 
   const handleSave = async (userId: string) => {
-    const typeIds = [...(typeSelections.get(userId) ?? [])];
+    const typeId = typeSelections.get(userId) ?? null;
     const agreement = agreementInputs.get(userId) ?? '';
     setSaving(prev => new Set(prev).add(userId));
     setError(null);
     try {
-      const [updated] = await Promise.all([
-        updateUserAssignments(userId, typeIds),
+      await Promise.all([
+        updateUserAssignment(userId, typeId),
         updateAgreementNumber(userId, agreement),
       ]);
-      // Re-fetch to get consistent state
       const freshUsers = await fetchKontrahentUsers();
       setUsers(freshUsers);
       const freshUser = freshUsers.find(u => u.keycloakUserId === userId);
       if (freshUser) {
         setTypeSelections(prev => {
           const next = new Map(prev);
-          next.set(userId, new Set(freshUser.assignedTypes.map(t => t.id)));
+          next.set(userId, freshUser.assignedType?.id ?? null);
           return next;
         });
         setAgreementInputs(prev => {
@@ -140,171 +151,218 @@ export function UserContractorTypesPage() {
     }
   };
 
-  if (loading) return <div className="loading">Ładowanie...</div>;
-
-  return (
-    <div>
-      <h1>Przypisanie typów kontrahentów</h1>
-
-      {error && <div className="alert alert-error">{error}</div>}
-
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Użytkownik</th>
-            <th>Email</th>
-            <th>Numer umowy</th>
-            <th>Typy kontrahenta</th>
-            <th>Akcje</th>
-          </tr>
-        </thead>
-        <tbody>
-          {users.map(user => {
-            const selectedTypeIds = typeSelections.get(user.keycloakUserId) ?? new Set();
-            const isSaving = saving.has(user.keycloakUserId);
-            const isSuccess = saveSuccess.has(user.keycloakUserId);
-            const changed = hasChanges(user);
-            const agreementValue = agreementInputs.get(user.keycloakUserId) ?? '';
-
-            return (
-              <tr key={user.keycloakUserId}>
-                <td>
-                  <button
-                    className="link-button"
-                    onClick={() => setDetailUser(user)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--primary)',
-                      cursor: 'pointer',
-                      padding: 0,
-                      font: 'inherit',
-                      textDecoration: 'underline',
-                      textAlign: 'left',
-                    }}
-                  >
-                    {user.firstName} {user.lastName}
-                  </button>
-                  <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>{user.username}</div>
-                </td>
-                <td>{user.email}</td>
-                <td>
-                  <input
-                    type="text"
-                    className="input"
-                    value={agreementValue}
-                    onChange={e => handleAgreementChange(user.keycloakUserId, e.target.value)}
-                    disabled={isSaving}
-                    placeholder="Numer umowy"
-                    style={{ minWidth: '180px' }}
-                  />
-                </td>
-                <td>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    {allTypes.map(type => (
-                      <label key={type.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                        <input
-                          type="checkbox"
-                          checked={selectedTypeIds.has(type.id)}
-                          onChange={() => handleTypeToggle(user.keycloakUserId, type.id)}
-                          disabled={isSaving}
-                        />
-                        <span style={{ fontSize: '0.85rem' }}>{type.symbol} — {type.name}</span>
-                      </label>
-                    ))}
-                  </div>
-                </td>
-                <td>
-                  <button
-                    className={`btn btn-sm ${isSuccess ? 'btn-success' : 'btn-primary'}`}
-                    onClick={() => handleSave(user.keycloakUserId)}
+  const columns: Column<KontrahentUser>[] = [
+      {
+        id: 'user',
+        label: 'Użytkownik',
+        minWidth: 180,
+        sortable: true,
+        filterable: true,
+        getValue: (row) => `${row.firstName} ${row.lastName}`,
+        render: (row) => (
+          <Box>
+            <Typography
+              variant="body2"
+              component="button"
+              onClick={(e: React.MouseEvent) => {
+                e.stopPropagation();
+                setDetailUser(row);
+              }}
+              sx={{
+                background: 'none',
+                border: 'none',
+                color: 'primary.main',
+                cursor: 'pointer',
+                p: 0,
+                font: 'inherit',
+                textDecoration: 'underline',
+                textAlign: 'left',
+                '&:hover': { color: 'primary.dark' },
+              }}
+            >
+              {row.firstName} {row.lastName}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" display="block">
+              {row.username}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        id: 'email',
+        label: 'Email',
+        minWidth: 200,
+        sortable: true,
+        filterable: true,
+        getValue: (row) => row.email,
+      },
+      {
+        id: 'agreementNumber',
+        label: 'Numer umowy',
+        minWidth: 180,
+        sortable: false,
+        filterable: false,
+        render: (row) => {
+          const isSaving = saving.has(row.keycloakUserId);
+          const value = agreementInputs.get(row.keycloakUserId) ?? '';
+          return (
+            <TextField
+              size="small"
+              variant="outlined"
+              value={value}
+              onChange={(e) => handleAgreementChange(row.keycloakUserId, e.target.value)}
+              disabled={isSaving}
+              placeholder="Numer umowy"
+              fullWidth
+              onClick={(e) => e.stopPropagation()}
+            />
+          );
+        },
+      },
+      {
+        id: 'contractorType',
+        label: 'Typ kontrahenta',
+        minWidth: 200,
+        sortable: false,
+        filterable: false,
+        render: (row) => {
+          const isSaving = saving.has(row.keycloakUserId);
+          const selectedTypeId = typeSelections.get(row.keycloakUserId) ?? null;
+          return (
+            <FormControl size="small" fullWidth onClick={(e) => e.stopPropagation()}>
+              <Select
+                value={selectedTypeId === null ? '' : String(selectedTypeId)}
+                onChange={(e) => handleTypeSelect(row.keycloakUserId, e.target.value)}
+                disabled={isSaving}
+                displayEmpty
+              >
+                <MenuItem value="">
+                  <em>-- Brak --</em>
+                </MenuItem>
+                {allTypes.map(type => (
+                  <MenuItem key={type.id} value={String(type.id)}>
+                    {type.symbol} -- {type.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          );
+        },
+      },
+      {
+        id: 'actions',
+        label: 'Akcje',
+        minWidth: 100,
+        sortable: false,
+        filterable: false,
+        render: (row) => {
+          const isSaving = saving.has(row.keycloakUserId);
+          const isSuccess = saveSuccess.has(row.keycloakUserId);
+          const changed = hasChanges(row);
+          return (
+            <Box onClick={(e) => e.stopPropagation()}>
+              <Tooltip title={isSuccess ? 'Zapisano' : 'Zapisz zmiany'}>
+                <span>
+                  <Button
+                    variant={isSuccess ? 'contained' : 'outlined'}
+                    color={isSuccess ? 'success' : 'primary'}
+                    size="small"
+                    startIcon={
+                      isSaving ? <CircularProgress size={16} /> : <SaveIcon fontSize="small" />
+                    }
+                    onClick={() => handleSave(row.keycloakUserId)}
                     disabled={isSaving || !changed}
                   >
                     {isSaving ? 'Zapisywanie...' : isSuccess ? 'Zapisano' : 'Zapisz'}
-                  </button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                  </Button>
+                </span>
+              </Tooltip>
+            </Box>
+          );
+        },
+      },
+  ];
 
-      {detailUser && (
-        <div className="modal-overlay" onClick={() => setDetailUser(null)}>
-          <div className="modal modal-wide" onClick={e => e.stopPropagation()}>
-            <h2>Dane kontrahenta</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 24px' }}>
-              <div>
-                <strong>Imię:</strong>
-                <div>{detailUser.firstName || '—'}</div>
-              </div>
-              <div>
-                <strong>Nazwisko:</strong>
-                <div>{detailUser.lastName || '—'}</div>
-              </div>
-              <div>
-                <strong>Email:</strong>
-                <div>{detailUser.email || '—'}</div>
-              </div>
-              <div>
-                <strong>Login:</strong>
-                <div>{detailUser.username}</div>
-              </div>
-              <div>
-                <strong>Skrót kontrahenta:</strong>
-                <div>{detailUser.contractorData?.contractorAbbreviation || '—'}</div>
-              </div>
-              <div>
-                <strong>Nazwa pełna kontrahenta:</strong>
-                <div>{detailUser.contractorData?.contractorFullName || '—'}</div>
-              </div>
-              <div>
-                <strong>Nazwa skrócona kontrahenta:</strong>
-                <div>{detailUser.contractorData?.contractorShortName || '—'}</div>
-              </div>
-              <div>
-                <strong>KRS:</strong>
-                <div>{detailUser.contractorData?.krs || '—'}</div>
-              </div>
-              <div>
-                <strong>NIP:</strong>
-                <div>{detailUser.contractorData?.nip || '—'}</div>
-              </div>
-              <div>
-                <strong>Adres siedziby:</strong>
-                <div>{detailUser.contractorData?.registeredAddress || '—'}</div>
-              </div>
-              <div>
-                <strong>Kod kontrahenta:</strong>
-                <div>{detailUser.contractorData?.contractorCode || '—'}</div>
-              </div>
-              <div>
-                <strong>Typy kontrahenta:</strong>
-                <div>
-                  {detailUser.assignedTypes.length > 0
-                    ? detailUser.assignedTypes.map(t => t.symbol).join(', ')
-                    : '—'}
-                </div>
-              </div>
-              <div>
-                <strong>Numer umowy:</strong>
-                <div>{detailUser.contractorData?.agreementNumber || '—'}</div>
-              </div>
-              <div>
-                <strong>Data umowy od:</strong>
-                <div>{detailUser.contractorData?.agreementDateFrom || '—'}</div>
-              </div>
-              <div>
-                <strong>Data umowy do:</strong>
-                <div>{detailUser.contractorData?.agreementDateTo || '—'}</div>
-              </div>
-            </div>
-            <div className="modal-actions">
-              <button className="btn" onClick={() => setDetailUser(null)}>Zamknij</button>
-            </div>
-          </div>
-        </div>
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  const detailFields: { label: string; value: string }[] = detailUser
+    ? [
+        { label: 'Imię', value: detailUser.firstName || '--' },
+        { label: 'Nazwisko', value: detailUser.lastName || '--' },
+        { label: 'Email', value: detailUser.email || '--' },
+        { label: 'Login', value: detailUser.username },
+        { label: 'Skrót kontrahenta', value: detailUser.contractorData?.contractorAbbreviation || '--' },
+        { label: 'Nazwa pełna', value: detailUser.contractorData?.contractorFullName || '--' },
+        { label: 'Nazwa skrócona', value: detailUser.contractorData?.contractorShortName || '--' },
+        { label: 'KRS', value: detailUser.contractorData?.krs || '--' },
+        { label: 'NIP', value: detailUser.contractorData?.nip || '--' },
+        { label: 'Adres siedziby', value: detailUser.contractorData?.registeredAddress || '--' },
+        { label: 'Kod kontrahenta', value: detailUser.contractorData?.contractorCode || '--' },
+        {
+          label: 'Typ kontrahenta',
+          value: detailUser.assignedType
+            ? `${detailUser.assignedType.symbol} -- ${detailUser.assignedType.name}`
+            : '--',
+        },
+        { label: 'Numer umowy', value: detailUser.contractorData?.agreementNumber || '--' },
+        { label: 'Data umowy od', value: detailUser.contractorData?.agreementDateFrom || '--' },
+        { label: 'Data umowy do', value: detailUser.contractorData?.agreementDateTo || '--' },
+      ]
+    : [];
+
+  return (
+    <Box>
+      <Typography variant="h5" component="h1" sx={{ mb: 2 }}>
+        Przypisanie typow kontrahentow
+      </Typography>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
       )}
-    </div>
+
+      <AppTable
+        columns={columns}
+        rows={users}
+        getRowKey={(row) => row.keycloakUserId}
+        emptyMessage="Brak uzytkownikow"
+      />
+
+      <AppModal
+        open={detailUser !== null}
+        onClose={() => setDetailUser(null)}
+        title="Dane kontrahenta"
+        wide
+        actions={
+          <Button variant="outlined" onClick={() => setDetailUser(null)}>
+            Zamknij
+          </Button>
+        }
+      >
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+            gap: '12px 24px',
+          }}
+        >
+          {detailFields.map((field) => (
+            <Box key={field.label}>
+              <Typography variant="subtitle2" color="text.secondary">
+                {field.label}
+              </Typography>
+              <Typography variant="body1">{field.value}</Typography>
+            </Box>
+          ))}
+        </Box>
+      </AppModal>
+    </Box>
   );
 }

@@ -1,6 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { fetchDeclarationTypeByCode, type DeclarationTypeDetail } from '../api/declarationTypes';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import Paper from '@mui/material/Paper';
+import Chip from '@mui/material/Chip';
+import Button from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
+import Alert from '@mui/material/Alert';
+import Fade from '@mui/material/Fade';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import AppTable from '../components/AppTable';
+import type { Column } from '../components/AppTable';
+import {
+  fetchDeclarationTypeByCode,
+  type DeclarationTypeDetail,
+  type DeclarationTypeField,
+} from '../api/declarationTypes';
 
 export function DeclarationTypePreviewPage() {
   const { code } = useParams<{ code: string }>();
@@ -24,49 +39,108 @@ export function DeclarationTypePreviewPage() {
     })();
   }, [code]);
 
-  if (loading) return <div className="loading">Ładowanie...</div>;
-  if (error) return <div className="alert alert-error">{error}</div>;
+  const columns = useMemo<Column<DeclarationTypeField>[]>(
+    () => [
+      {
+        id: 'position',
+        label: 'Nr',
+        minWidth: 50,
+        getValue: (f) => f.position,
+      },
+      {
+        id: 'fieldCode',
+        label: 'Kod',
+        minWidth: 100,
+        render: (f) => (
+          <Typography variant="body2" component="code" sx={{ fontFamily: 'monospace' }}>
+            {f.fieldCode}
+          </Typography>
+        ),
+      },
+      { id: 'dataType', label: 'Typ danych', minWidth: 100 },
+      { id: 'fieldName', label: 'Nazwa pozycji', minWidth: 200 },
+      {
+        id: 'required',
+        label: 'Wymagane',
+        minWidth: 90,
+        sortable: false,
+        filterable: false,
+        render: (f) => (
+          <Chip label={f.required ? 'Tak' : 'Nie'} size="small" color={f.required ? 'primary' : 'default'} />
+        ),
+      },
+      { id: 'unit', label: 'Jednostka', minWidth: 80 },
+    ],
+    [],
+  );
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert severity="error" sx={{ m: 2 }}>
+        {error}
+      </Alert>
+    );
+  }
+
   if (!detail) return null;
 
   return (
-    <div>
-      <button className="btn" onClick={() => navigate('/admin/declaration-types')} style={{ marginBottom: '1.5rem' }}>
-        &#8592; Powrót do listy
-      </button>
+    <Fade in>
+      <Box>
+        <Button
+          startIcon={<ArrowBackIcon />}
+          onClick={() => navigate('/admin/declaration-types')}
+          sx={{ mb: 2 }}
+        >
+          Powrót do listy
+        </Button>
 
-      <h1>{detail.code} — {detail.name}</h1>
+        <Typography variant="h4" gutterBottom>
+          {detail.code} — {detail.name}
+        </Typography>
 
-      <div className="detail-info">
-        <p><strong>Typy kontrahentów:</strong> {detail.contractorTypes}</p>
-        <p><strong>Komentarz kontrahenta:</strong> {detail.hasComment ? 'Tak' : 'Nie'}</p>
-      </div>
+        <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                Typy kontrahentów
+              </Typography>
+              <Typography>{detail.contractorTypes}</Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                Komentarz kontrahenta
+              </Typography>
+              <Box sx={{ mt: 0.25 }}>
+                <Chip
+                  label={detail.hasComment ? 'Tak' : 'Nie'}
+                  size="small"
+                  color={detail.hasComment ? 'success' : 'default'}
+                />
+              </Box>
+            </Box>
+          </Box>
+        </Paper>
 
-      <h2>Pola oświadczenia</h2>
+        <Typography variant="h6" gutterBottom>
+          Pola oświadczenia
+        </Typography>
 
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Nr</th>
-            <th>Kod</th>
-            <th>Typ danych</th>
-            <th>Nazwa pozycji</th>
-            <th>Wymagane</th>
-            <th>Jedn.</th>
-          </tr>
-        </thead>
-        <tbody>
-          {detail.fields.map((f, idx) => (
-            <tr key={idx}>
-              <td>{f.position}</td>
-              <td><code>{f.fieldCode}</code></td>
-              <td>{f.dataType}</td>
-              <td>{f.fieldName}</td>
-              <td>{f.required ? 'Tak' : 'Nie'}</td>
-              <td>{f.unit}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+        <AppTable
+          columns={columns}
+          rows={detail.fields}
+          getRowKey={(f) => f.fieldCode}
+          emptyMessage="Brak zdefiniowanych pól"
+        />
+      </Box>
+    </Fade>
   );
 }

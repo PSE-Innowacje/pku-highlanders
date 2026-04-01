@@ -19,7 +19,7 @@ import pl.pse.pku.userassignment.UserContractorTypeAssignment;
 import pl.pse.pku.userassignment.UserContractorTypeAssignmentRepository;
 
 @Component
-@Order(3)
+@Order(10)
 @RequiredArgsConstructor
 @Slf4j
 public class ContractorDataSeeder implements ApplicationRunner {
@@ -91,6 +91,8 @@ public class ContractorDataSeeder implements ApplicationRunner {
             return;
         }
 
+        waitForKeycloak();
+
         int created = 0;
         for (int i = 0; i < TEST_DATA.size(); i++) {
             var tc = TEST_DATA.get(i);
@@ -131,13 +133,11 @@ public class ContractorDataSeeder implements ApplicationRunner {
                 data.setAgreementDateTo(LocalDate.of(2025, 12, 31));
                 contractorDataRepository.save(data);
 
-                // Create type assignments
-                String[] typeSymbols = tc.typeString().split("\\s+");
-                for (String symbol : typeSymbols) {
-                    contractorTypeRepository.findBySymbolIgnoreCase(symbol.trim())
-                        .ifPresent(type -> assignmentRepository.save(
-                            new UserContractorTypeAssignment(null, keycloakUserId, type)));
-                }
+                // Assign first contractor type
+                String firstSymbol = tc.typeString().split("\\s+")[0].trim();
+                contractorTypeRepository.findBySymbolIgnoreCase(firstSymbol)
+                    .ifPresent(type -> assignmentRepository.save(
+                        new UserContractorTypeAssignment(null, keycloakUserId, type)));
 
                 created++;
             } catch (Exception e) {
@@ -145,6 +145,25 @@ public class ContractorDataSeeder implements ApplicationRunner {
             }
         }
         log.info("Seeded {} contractor data records with Keycloak users", created);
+    }
+
+    private void waitForKeycloak() {
+        for (int attempt = 1; attempt <= 30; attempt++) {
+            try {
+                keycloakAdminService.userExists("test-probe");
+                log.info("Keycloak is ready");
+                return;
+            } catch (Exception e) {
+                log.info("Waiting for Keycloak... attempt {}/30", attempt);
+                try {
+                    Thread.sleep(2000);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+        }
+        log.warn("Keycloak not ready after 60s, skipping contractor data seeding");
     }
 
     private String generateKrs() {

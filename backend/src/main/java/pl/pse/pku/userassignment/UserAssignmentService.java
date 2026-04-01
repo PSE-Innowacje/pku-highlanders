@@ -1,6 +1,5 @@
 package pl.pse.pku.userassignment;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -33,9 +32,9 @@ public class UserAssignmentService {
         List<KeycloakUserDto> users = keycloakAdminService.getKontrahentUsers();
         List<String> userIds = users.stream().map(KeycloakUserDto::id).toList();
 
-        Map<String, List<UserContractorTypeAssignment>> assignmentsByUser =
+        Map<String, UserContractorTypeAssignment> assignmentsByUser =
             assignmentRepository.findByKeycloakUserIdIn(userIds).stream()
-                .collect(Collectors.groupingBy(UserContractorTypeAssignment::getKeycloakUserId));
+                .collect(Collectors.toMap(UserContractorTypeAssignment::getKeycloakUserId, Function.identity()));
 
         Map<String, ContractorData> dataByUser =
             contractorDataRepository.findByKeycloakUserIdIn(userIds).stream()
@@ -43,30 +42,35 @@ public class UserAssignmentService {
 
         return users.stream()
             .map(user -> {
-                var assignments = assignmentsByUser.getOrDefault(user.id(), Collections.emptyList());
-                List<ContractorTypeDto> typeDtos = assignments.stream()
-                    .map(a -> toDto(a.getContractorType()))
-                    .toList();
+                var assignment = assignmentsByUser.get(user.id());
+                ContractorTypeDto typeDto = assignment != null ? toDto(assignment.getContractorType()) : null;
                 ContractorDataDto dataDto = toDataDto(dataByUser.get(user.id()));
                 return new KontrahentUserWithTypesDto(
                     user.id(), user.username(), user.firstName(), user.lastName(), user.email(),
-                    typeDtos, dataDto);
+                    typeDto, dataDto);
             })
             .toList();
     }
 
     @Transactional
-    public KontrahentUserWithTypesDto updateAssignments(String keycloakUserId, List<Long> contractorTypeIds) {
-        assignmentRepository.deleteAllByKeycloakUserId(keycloakUserId);
-        assignmentRepository.flush();
+    public KontrahentUserWithTypesDto updateAssignment(String keycloakUserId, Long contractorTypeId) {
+        ContractorTypeDto typeDto = null;
 
-        List<ContractorTypeDto> typeDtos = Collections.emptyList();
-        if (contractorTypeIds != null && !contractorTypeIds.isEmpty()) {
-            List<ContractorType> types = contractorTypeRepository.findAllById(contractorTypeIds);
-            for (ContractorType type : types) {
+        if (contractorTypeId != null) {
+            ContractorType type = contractorTypeRepository.findById(contractorTypeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Nie znaleziono typu kontrahenta o id " + contractorTypeId));
+
+            var existing = assignmentRepository.findByKeycloakUserId(keycloakUserId);
+            if (existing.isPresent()) {
+                existing.get().setContractorType(type);
+                assignmentRepository.save(existing.get());
+            } else {
                 assignmentRepository.save(new UserContractorTypeAssignment(null, keycloakUserId, type));
             }
-            typeDtos = types.stream().map(this::toDto).toList();
+            typeDto = toDto(type);
+        } else {
+            assignmentRepository.deleteByKeycloakUserId(keycloakUserId);
+            assignmentRepository.flush();
         }
 
         KeycloakUserDto user = findKeycloakUser(keycloakUserId);
@@ -74,7 +78,7 @@ public class UserAssignmentService {
 
         return new KontrahentUserWithTypesDto(
             user.id(), user.username(), user.firstName(), user.lastName(), user.email(),
-            typeDtos, dataDto);
+            typeDto, dataDto);
     }
 
     @Transactional
@@ -97,9 +101,8 @@ public class UserAssignmentService {
         KeycloakUserDto user = findKeycloakUser(keycloakUserId);
         ContractorData data = contractorDataRepository.findByKeycloakUserId(keycloakUserId).orElse(null);
 
-        List<ContractorTypeDto> typeDtos = assignmentRepository.findAllByKeycloakUserId(keycloakUserId).stream()
-            .map(a -> toDto(a.getContractorType()))
-            .toList();
+        var assignment = assignmentRepository.findByKeycloakUserId(keycloakUserId).orElse(null);
+        ContractorTypeDto typeDto = assignment != null ? toDto(assignment.getContractorType()) : null;
 
         return new CurrentUserContractorDto(
             user.firstName(),
@@ -107,7 +110,7 @@ public class UserAssignmentService {
             data != null ? data.getAgreementNumber() : null,
             data != null ? data.getContractorFullName() : null,
             data != null ? data.getContractorAbbreviation() : null,
-            typeDtos,
+            typeDto,
             toDataDto(data));
     }
 

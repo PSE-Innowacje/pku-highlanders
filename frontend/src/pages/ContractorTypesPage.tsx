@@ -1,7 +1,21 @@
 import { useEffect, useState } from 'react';
-import Autocomplete from '@mui/material/Autocomplete';
-import TextField from '@mui/material/TextField';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
 import Chip from '@mui/material/Chip';
+import TextField from '@mui/material/TextField';
+import Paper from '@mui/material/Paper';
+import Alert from '@mui/material/Alert';
+import Tooltip from '@mui/material/Tooltip';
+import Fade from '@mui/material/Fade';
+import Autocomplete from '@mui/material/Autocomplete';
+import CircularProgress from '@mui/material/CircularProgress';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import AddIcon from '@mui/icons-material/Add';
+import AppTable from '../components/AppTable';
+import type { Column } from '../components/AppTable';
 import {
   fetchContractorTypes,
   createContractorType,
@@ -23,12 +37,9 @@ export function ContractorTypesPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formSymbol, setFormSymbol] = useState('');
   const [formName, setFormName] = useState('');
+  const [formDeclarations, setFormDeclarations] = useState<DeclarationTypeRef[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
-
-  // Track declaration type assignments per contractor type
-  const [assignments, setAssignments] = useState<Map<number, DeclarationTypeRef[]>>(new Map());
-  const [saving, setSaving] = useState<Set<number>>(new Set());
-  const [saveSuccess, setSaveSuccess] = useState<Set<number>>(new Set());
+  const [formSaving, setFormSaving] = useState(false);
 
   const loadData = async () => {
     try {
@@ -40,12 +51,6 @@ export function ContractorTypesPage() {
       ]);
       setTypes(typesData);
       setAllDeclarationTypes(declData);
-
-      const asgn = new Map<number, DeclarationTypeRef[]>();
-      typesData.forEach(ct => {
-        asgn.set(ct.id, ct.declarationTypes ?? []);
-      });
-      setAssignments(asgn);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Nieznany błąd');
     } finally {
@@ -57,10 +62,20 @@ export function ContractorTypesPage() {
     loadData();
   }, []);
 
+  const editingType = editingId != null ? types.find(t => t.id === editingId) : null;
+  const isSystemEdit = editingType?.system ?? false;
+
+  const declOptions: DeclarationTypeRef[] = allDeclarationTypes.map(d => ({
+    id: d.id,
+    code: d.code,
+    name: d.name,
+  }));
+
   const openAdd = () => {
     setEditingId(null);
     setFormSymbol('');
     setFormName('');
+    setFormDeclarations([]);
     setFormError(null);
     setShowForm(true);
   };
@@ -69,6 +84,7 @@ export function ContractorTypesPage() {
     setEditingId(ct.id);
     setFormSymbol(ct.symbol);
     setFormName(ct.name);
+    setFormDeclarations(ct.declarationTypes ?? []);
     setFormError(null);
     setShowForm(true);
   };
@@ -81,21 +97,30 @@ export function ContractorTypesPage() {
 
   const handleSave = async () => {
     setFormError(null);
+    setFormSaving(true);
     try {
       if (editingId) {
         await updateContractorType(editingId, { symbol: formSymbol, name: formName });
+        const declIds = formDeclarations.map(d => d.id);
+        await updateContractorTypeDeclarations(editingId, declIds);
       } else {
-        await createContractorType({ symbol: formSymbol, name: formName });
+        const created = await createContractorType({ symbol: formSymbol, name: formName });
+        if (formDeclarations.length > 0) {
+          const declIds = formDeclarations.map(d => d.id);
+          await updateContractorTypeDeclarations(created.id, declIds);
+        }
       }
       closeForm();
       await loadData();
     } catch (e) {
       setFormError(e instanceof Error ? e.message : 'Nieznany błąd');
+    } finally {
+      setFormSaving(false);
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Czy na pewno chcesz usunąć ten typ kontrahenta?')) return;
+    if (!window.confirm('Czy na pewno chcesz usunac ten typ kontrahenta?')) return;
     try {
       await deleteContractorType(id);
       await loadData();
@@ -104,171 +129,195 @@ export function ContractorTypesPage() {
     }
   };
 
-  const handleAssignmentChange = (ctId: number, newValues: DeclarationTypeRef[]) => {
-    setAssignments(prev => {
-      const next = new Map(prev);
-      next.set(ctId, newValues);
-      return next;
-    });
-    setSaveSuccess(prev => {
-      const next = new Set(prev);
-      next.delete(ctId);
-      return next;
-    });
-  };
+  const columns: Column<ContractorType>[] = [
+      {
+        id: 'symbol',
+        label: 'Symbol',
+        minWidth: 100,
+        sortable: true,
+        filterable: true,
+        getValue: (row) => row.symbol,
+      },
+      {
+        id: 'name',
+        label: 'Nazwa',
+        minWidth: 180,
+        sortable: true,
+        filterable: true,
+        getValue: (row) => row.name,
+      },
+      {
+        id: 'system',
+        label: 'System',
+        minWidth: 80,
+        sortable: true,
+        filterable: false,
+        render: (row) => (
+          <Chip
+            label={row.system ? 'Tak' : 'Nie'}
+            size="small"
+            color={row.system ? 'primary' : 'default'}
+            variant={row.system ? 'filled' : 'outlined'}
+          />
+        ),
+        getValue: (row) => (row.system ? 'Tak' : 'Nie'),
+      },
+      {
+        id: 'declarationTypes',
+        label: 'Przypisane typy oświadczeń',
+        minWidth: 250,
+        sortable: false,
+        filterable: false,
+        render: (row) => (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+            {(row.declarationTypes ?? []).length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                Brak
+              </Typography>
+            ) : (
+              (row.declarationTypes ?? []).map((dt) => (
+                <Chip key={dt.id} label={dt.code} size="small" variant="outlined" />
+              ))
+            )}
+          </Box>
+        ),
+      },
+      {
+        id: 'actions',
+        label: 'Akcje',
+        minWidth: 100,
+        sortable: false,
+        filterable: false,
+        render: (row) => (
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
+            <Tooltip title="Edytuj">
+              <IconButton size="small" onClick={() => openEdit(row)}>
+                <EditIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={row.system ? 'Typ systemowy nie moze byc usuniety' : 'Usun'}>
+              <span>
+                <IconButton
+                  size="small"
+                  color="error"
+                  disabled={row.system}
+                  onClick={() => handleDelete(row.id)}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+          </Box>
+        ),
+      }
+  ];
 
-  const hasAssignmentChanges = (ct: ContractorType): boolean => {
-    const current = new Set((ct.declarationTypes ?? []).map(d => d.id));
-    const edited = new Set((assignments.get(ct.id) ?? []).map(d => d.id));
-    if (current.size !== edited.size) return true;
-    for (const id of current) {
-      if (!edited.has(id)) return true;
-    }
-    return false;
-  };
-
-  const handleSaveAssignments = async (ctId: number) => {
-    const declIds = (assignments.get(ctId) ?? []).map(d => d.id);
-    setSaving(prev => new Set(prev).add(ctId));
-    setError(null);
-    try {
-      const updated = await updateContractorTypeDeclarations(ctId, declIds);
-      setTypes(prev => prev.map(ct => ct.id === ctId ? updated : ct));
-      setSaveSuccess(prev => new Set(prev).add(ctId));
-      setTimeout(() => {
-        setSaveSuccess(prev => {
-          const next = new Set(prev);
-          next.delete(ctId);
-          return next;
-        });
-      }, 2000);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Nieznany błąd');
-    } finally {
-      setSaving(prev => {
-        const next = new Set(prev);
-        next.delete(ctId);
-        return next;
-      });
-    }
-  };
-
-  // Convert DeclarationType (from list API) to DeclarationTypeRef (for Autocomplete options)
-  const declOptions: DeclarationTypeRef[] = allDeclarationTypes.map(d => ({
-    id: d.id,
-    code: d.code,
-    name: d.name,
-  }));
-
-  if (loading) return <div className="loading">Ładowanie...</div>;
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
-    <div>
-      <div className="page-header">
-        <h1>Typy kontrahentów</h1>
-        <button className="btn btn-primary" onClick={openAdd}>Dodaj</button>
-      </div>
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h5" component="h1">
+          Typy kontrahentow
+        </Typography>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={openAdd}>
+          Dodaj
+        </Button>
+      </Box>
 
-      {error && <div className="alert alert-error">{error}</div>}
-
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Symbol</th>
-            <th>Nazwa</th>
-            <th>Typ systemowy</th>
-            <th>Typy oświadczeń</th>
-            <th>Akcje</th>
-          </tr>
-        </thead>
-        <tbody>
-          {types.map(ct => {
-            const selectedDecls = assignments.get(ct.id) ?? [];
-            const isSaving = saving.has(ct.id);
-            const isSuccess = saveSuccess.has(ct.id);
-            const changed = hasAssignmentChanges(ct);
-
-            return (
-              <tr key={ct.id} style={{ verticalAlign: 'top' }}>
-                <td>{ct.symbol}</td>
-                <td>{ct.name}</td>
-                <td>{ct.system ? 'Tak' : 'Nie'}</td>
-                <td style={{ minWidth: 350 }}>
-                  <Autocomplete
-                    multiple
-                    size="small"
-                    options={declOptions}
-                    getOptionLabel={(o) => `${o.code} — ${o.name}`}
-                    isOptionEqualToValue={(o, v) => o.id === v.id}
-                    value={selectedDecls}
-                    onChange={(_, newValue) => handleAssignmentChange(ct.id, newValue)}
-                    disabled={isSaving}
-                    renderTags={(value, getTagProps) =>
-                      value.map((option, index) => {
-                        const { key, ...rest } = getTagProps({ index });
-                        return <Chip key={key} label={option.code} size="small" {...rest} />;
-                      })
-                    }
-                    renderInput={(params) => (
-                      <TextField {...params} placeholder="Wybierz typy oświadczeń" variant="outlined" size="small" />
-                    )}
-                  />
-                </td>
-                <td>
-                  <div style={{ display: 'flex', gap: '0.25rem', flexDirection: 'column' }}>
-                    <button
-                      className={`btn btn-sm ${isSuccess ? 'btn-success' : 'btn-primary'}`}
-                      onClick={() => handleSaveAssignments(ct.id)}
-                      disabled={isSaving || !changed}
-                    >
-                      {isSaving ? 'Zapisywanie...' : isSuccess ? 'Zapisano' : 'Zapisz oświadczenia'}
-                    </button>
-                    {!ct.system && (
-                      <>
-                        <button className="btn btn-sm" onClick={() => openEdit(ct)}>Edytuj</button>
-                        <button className="btn btn-sm btn-danger" onClick={() => handleDelete(ct.id)}>Usuń</button>
-                      </>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-
-      {showForm && (
-        <div className="modal-overlay" onClick={closeForm}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <h2>{editingId ? 'Edytuj typ kontrahenta' : 'Dodaj typ kontrahenta'}</h2>
-            {formError && <div className="alert alert-error">{formError}</div>}
-            <div className="form-group">
-              <label htmlFor="symbol">Symbol (max 10 znaków)</label>
-              <input
-                id="symbol"
-                type="text"
-                maxLength={10}
-                value={formSymbol}
-                onChange={e => setFormSymbol(e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="name">Nazwa</label>
-              <input
-                id="name"
-                type="text"
-                maxLength={255}
-                value={formName}
-                onChange={e => setFormName(e.target.value)}
-              />
-            </div>
-            <div className="modal-actions">
-              <button className="btn" onClick={closeForm}>Anuluj</button>
-              <button className="btn btn-primary" onClick={handleSave}>Zapisz</button>
-            </div>
-          </div>
-        </div>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
       )}
-    </div>
+
+      <AppTable
+        columns={columns}
+        rows={types}
+        getRowKey={(row) => row.id}
+        emptyMessage="Brak typow kontrahentow"
+      />
+
+      <Fade in={showForm} unmountOnExit>
+        <Paper sx={{ mt: 3, p: 3 }} elevation={2}>
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            {editingId ? 'Edytuj typ kontrahenta' : 'Dodaj typ kontrahenta'}
+          </Typography>
+
+          {formError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {formError}
+            </Alert>
+          )}
+
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 600 }}>
+            <TextField
+              label="Symbol (max 10 znakow)"
+              value={formSymbol}
+              onChange={(e) => setFormSymbol(e.target.value)}
+              inputProps={{ maxLength: 10 }}
+              size="small"
+              disabled={isSystemEdit}
+              fullWidth
+            />
+
+            <TextField
+              label="Nazwa"
+              value={formName}
+              onChange={(e) => setFormName(e.target.value)}
+              inputProps={{ maxLength: 255 }}
+              size="small"
+              disabled={isSystemEdit}
+              fullWidth
+            />
+
+            <Autocomplete
+              multiple
+              size="small"
+              options={declOptions}
+              getOptionLabel={(o) => `${o.code} -- ${o.name}`}
+              isOptionEqualToValue={(o, v) => o.id === v.id}
+              value={formDeclarations}
+              onChange={(_, newValue) => setFormDeclarations(newValue)}
+              renderTags={(value, getTagProps) =>
+                value.map((option, index) => {
+                  const { key, ...rest } = getTagProps({ index });
+                  return <Chip key={key} label={option.code} size="small" {...rest} />;
+                })
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Przypisane typy oświadczeń"
+                  placeholder="Wybierz typy oświadczeń"
+                  variant="outlined"
+                  size="small"
+                />
+              )}
+            />
+
+            <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+              <Button
+                variant="contained"
+                onClick={handleSave}
+                disabled={formSaving || !formSymbol.trim() || !formName.trim()}
+              >
+                {formSaving ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
+                Zapisz
+              </Button>
+              <Button variant="outlined" onClick={closeForm} disabled={formSaving}>
+                Anuluj
+              </Button>
+            </Box>
+          </Box>
+        </Paper>
+      </Fade>
+    </Box>
   );
 }
