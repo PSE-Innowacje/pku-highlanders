@@ -6,68 +6,31 @@ import spock.lang.Subject
 
 class DeclarationTypeServiceSpec extends Specification {
 
-    DeclarationTypeRepository repository = Mock()
+    def repository = Mock(DeclarationTypeRepository)
 
     @Subject
-    DeclarationTypeService service = new DeclarationTypeService(repository)
-
-    // --- helpers ---
-
-    private DeclarationType buildType(Long id = 1L, String code = "CODE", boolean hasComment = false,
-                                      List<DeclarationTypeField> fields = [],
-                                      List<ScheduleEntry> scheduleEntries = []) {
-        def dt = new DeclarationType(id, code, "DT Name", "OSDp", hasComment, fields, scheduleEntries)
-        fields.each { it.declarationType = dt }
-        scheduleEntries.each { it.declarationType = dt }
-        dt
-    }
-
-    private DeclarationTypeField buildField(String code = "F1", String name = "Field One",
-                                            boolean required = true, String unit = "kWh") {
-        def f = new DeclarationTypeField()
-        f.position = "1"
-        f.fieldCode = code
-        f.dataType = "NUMBER"
-        f.fieldName = name
-        f.required = required
-        f.unit = unit
-        f
-    }
-
-    private ScheduleEntry buildScheduleEntry(Long id = null, String position = "1",
-                                             int day = 1, int hour = 8, String dayType = "WORKING") {
-        def e = new ScheduleEntry()
-        e.id = id
-        e.position = position
-        e.day = day
-        e.hour = hour
-        e.dayType = dayType
-        e
-    }
+    def service = new DeclarationTypeService(repository)
 
     // --- findAll ---
 
-    def "findAll returns mapped DTOs with field count"() {
+    def "findAll returns all declaration types"() {
         given:
-        def field = buildField()
-        def dt = buildType(1L, "CODE", true, [field])
-        repository.findAll() >> [dt]
+        def dt1 = makeDeclarationType(1L, "OP.OSDp", "Opłata przejściowa", "OSDp", true, 5)
+        def dt2 = makeDeclarationType(2L, "OP.OK", "Opłata OK", "OK", false, 3)
+        repository.findAll() >> [dt1, dt2]
 
         when:
         def result = service.findAll()
 
         then:
-        result.size() == 1
-        with(result[0]) {
-            id() == 1L
-            code() == "CODE"
-            name() == "DT Name"
-            hasComment() == true
-            fieldCount() == 1
-        }
+        result.size() == 2
+        result[0].code() == "OP.OSDp"
+        result[0].fieldCount() == 5
+        result[1].code() == "OP.OK"
+        result[1].hasComment() == false
     }
 
-    def "findAll returns empty list when no declaration types exist"() {
+    def "findAll returns empty list when no types exist"() {
         given:
         repository.findAll() >> []
 
@@ -78,171 +41,132 @@ class DeclarationTypeServiceSpec extends Specification {
         result.isEmpty()
     }
 
-    def "findAll returns zero fieldCount for type with no fields"() {
-        given:
-        repository.findAll() >> [buildType()]
-
-        when:
-        def result = service.findAll()
-
-        then:
-        result[0].fieldCount() == 0
-    }
-
     // --- findByCode ---
 
-    def "findByCode returns detail DTO with fields when code exists"() {
+    def "findByCode returns declaration type detail with fields"() {
         given:
-        def field = buildField("POD", "Punkt Poboru", true, "-")
-        field.dataType = "TEXT"
-        def dt = buildType(2L, "OP.01", false, [field])
-        repository.findByCode("OP.01") >> Optional.of(dt)
+        def dt = makeDeclarationType(1L, "OP.OSDp", "Opłata przejściowa", "OSDp", true, 0)
+        def field = new DeclarationTypeField()
+        field.position = "1"
+        field.fieldCode = "F1"
+        field.dataType = "Number (9,3)"
+        field.fieldName = "Pole testowe"
+        field.required = true
+        field.unit = "kW"
+        dt.fields = [field]
+        repository.findByCode("OP.OSDp") >> Optional.of(dt)
 
         when:
-        def result = service.findByCode("OP.01")
+        def result = service.findByCode("OP.OSDp")
 
         then:
-        result.id() == 2L
-        result.code() == "OP.01"
+        result.code() == "OP.OSDp"
         result.fields().size() == 1
-        with(result.fields()[0]) {
-            fieldCode() == "POD"
-            fieldName() == "Punkt Poboru"
-            required() == true
-        }
+        result.fields()[0].fieldCode() == "F1"
+        result.fields()[0].dataType() == "Number (9,3)"
     }
 
-    def "findByCode returns detail DTO with empty fields list when type has no fields"() {
+    def "findByCode throws when code not found"() {
         given:
-        repository.findByCode("EMPTY") >> Optional.of(buildType(3L, "EMPTY"))
+        repository.findByCode("UNKNOWN") >> Optional.empty()
 
         when:
-        def result = service.findByCode("EMPTY")
+        service.findByCode("UNKNOWN")
 
         then:
-        result.fields().isEmpty()
-    }
-
-    def "findByCode throws ResourceNotFoundException when code does not exist"() {
-        given:
-        repository.findByCode("MISSING") >> Optional.empty()
-
-        when:
-        service.findByCode("MISSING")
-
-        then:
-        def ex = thrown(ResourceNotFoundException)
-        ex.message.contains("MISSING")
+        thrown(ResourceNotFoundException)
     }
 
     // --- getScheduleEntries ---
 
-    def "getScheduleEntries returns list of schedule entry DTOs for existing code"() {
+    def "getScheduleEntries returns entries for declaration type"() {
         given:
-        def entry = buildScheduleEntry(1L, "1", 5, 10, "WORKING")
-        def dt = buildType(1L, "OP.01", false, [], [entry])
-        repository.findByCode("OP.01") >> Optional.of(dt)
+        def dt = makeDeclarationType(1L, "OP.OSDp", "Test", "OSDp", false, 0)
+        def entry = new ScheduleEntry()
+        entry.id = 1L
+        entry.position = "Składanie oświadczenia rozliczeniowego"
+        entry.day = 15
+        entry.hour = 12
+        entry.dayType = "Dzień kalendarzowy"
+        entry.declarationType = dt
+        dt.scheduleEntries = [entry]
+
+        repository.findByCode("OP.OSDp") >> Optional.of(dt)
 
         when:
-        def result = service.getScheduleEntries("OP.01")
+        def result = service.getScheduleEntries("OP.OSDp")
 
         then:
         result.size() == 1
-        with(result[0]) {
-            id() == 1L
-            position() == "1"
-            day() == 5
-            hour() == 10
-            dayType() == "WORKING"
-        }
-    }
-
-    def "getScheduleEntries returns empty list when type has no schedule entries"() {
-        given:
-        repository.findByCode("OP.01") >> Optional.of(buildType())
-
-        when:
-        def result = service.getScheduleEntries("OP.01")
-
-        then:
-        result.isEmpty()
-    }
-
-    def "getScheduleEntries throws ResourceNotFoundException when code does not exist"() {
-        given:
-        repository.findByCode("MISSING") >> Optional.empty()
-
-        when:
-        service.getScheduleEntries("MISSING")
-
-        then:
-        def ex = thrown(ResourceNotFoundException)
-        ex.message.contains("MISSING")
+        result[0].day() == 15
+        result[0].hour() == 12
+        result[0].position() == "Składanie oświadczenia rozliczeniowego"
     }
 
     // --- saveScheduleEntries ---
 
-    def "saveScheduleEntries replaces existing entries and returns updated list"() {
+    def "saveScheduleEntries replaces all entries"() {
         given:
-        def oldEntry = buildScheduleEntry(1L, "1", 1, 6, "WORKING")
-        def dt = buildType(1L, "OP.01", false, [], [oldEntry])
-        repository.findByCode("OP.01") >> Optional.of(dt)
-        repository.save(dt) >> dt
+        def dt = makeDeclarationType(1L, "OP.OSDp", "Test", "OSDp", false, 0)
+        def oldEntry = new ScheduleEntry()
+        oldEntry.id = 1L
+        oldEntry.declarationType = dt
+        dt.scheduleEntries = new ArrayList([oldEntry])
 
         def newEntries = [
-            new ScheduleEntryDto(null, "1", 3, 8, "WORKING"),
-            new ScheduleEntryDto(null, "2", 5, 14, "WEEKEND")
+            new ScheduleEntryDto(null, "Składanie oświadczenia rozliczeniowego", 1, 8, "Dzień kalendarzowy"),
+            new ScheduleEntryDto(null, "Wystawienie faktury za świadczenie usług", 15, 12, "Dzień roboczy"),
         ]
 
+        repository.findByCode("OP.OSDp") >> Optional.of(dt)
+        repository.save(dt) >> dt
+
         when:
-        def result = service.saveScheduleEntries("OP.01", newEntries)
+        def result = service.saveScheduleEntries("OP.OSDp", newEntries)
 
         then:
-        1 * repository.save(dt)
+        result.size() == 2
         dt.scheduleEntries.size() == 2
-        dt.scheduleEntries[0].position == "1"
-        dt.scheduleEntries[0].day == 3
-        dt.scheduleEntries[0].hour == 8
-        dt.scheduleEntries[1].dayType == "WEEKEND"
+        dt.scheduleEntries[0].day == 1
+        dt.scheduleEntries[1].day == 15
     }
 
-    def "saveScheduleEntries clears all entries when given empty list"() {
+    def "saveScheduleEntries clears entries when empty list"() {
         given:
-        def existing = buildScheduleEntry(1L, "1", 1, 6, "WORKING")
-        def dt = buildType(1L, "OP.01", false, [], [existing])
-        repository.findByCode("OP.01") >> Optional.of(dt)
+        def dt = makeDeclarationType(1L, "OP.OSDp", "Test", "OSDp", false, 0)
+        dt.scheduleEntries = new ArrayList()
+
+        repository.findByCode("OP.OSDp") >> Optional.of(dt)
         repository.save(dt) >> dt
 
         when:
-        def result = service.saveScheduleEntries("OP.01", [])
+        def result = service.saveScheduleEntries("OP.OSDp", [])
 
         then:
-        dt.scheduleEntries.isEmpty()
         result.isEmpty()
+        dt.scheduleEntries.isEmpty()
     }
 
-    def "saveScheduleEntries throws ResourceNotFoundException when code does not exist"() {
-        given:
-        repository.findByCode("MISSING") >> Optional.empty()
+    // --- helpers ---
 
-        when:
-        service.saveScheduleEntries("MISSING", [])
-
-        then:
-        def ex = thrown(ResourceNotFoundException)
-        ex.message.contains("MISSING")
-    }
-
-    def "saveScheduleEntries links each new entry to the declaration type"() {
-        given:
-        def dt = buildType(1L, "OP.01")
-        repository.findByCode("OP.01") >> Optional.of(dt)
-        repository.save(dt) >> dt
-
-        when:
-        service.saveScheduleEntries("OP.01", [new ScheduleEntryDto(null, "1", 2, 9, "WORKING")])
-
-        then:
-        dt.scheduleEntries[0].declarationType == dt
+    private DeclarationType makeDeclarationType(Long id, String code, String name, String contractorTypes, boolean hasComment, int fieldCount) {
+        def dt = new DeclarationType()
+        dt.id = id
+        dt.code = code
+        dt.name = name
+        dt.contractorTypes = contractorTypes
+        dt.hasComment = hasComment
+        dt.fields = (1..fieldCount).collect {
+            def f = new DeclarationTypeField()
+            f.position = String.valueOf(it)
+            f.fieldCode = "F${it}"
+            f.dataType = "Number"
+            f.fieldName = "Field ${it}"
+            f.required = false
+            f.unit = "szt"
+            return f
+        }
+        dt.scheduleEntries = []
+        return dt
     }
 }

@@ -12,170 +12,117 @@ import spock.lang.Subject
 
 class UserAssignmentServiceSpec extends Specification {
 
-    KeycloakAdminService keycloakAdminService = Mock()
-    UserContractorTypeAssignmentRepository assignmentRepository = Mock()
-    ContractorTypeRepository contractorTypeRepository = Mock()
-    ContractorDataRepository contractorDataRepository = Mock()
+    def keycloakAdminService = Mock(KeycloakAdminService)
+    def assignmentRepository = Mock(UserContractorTypeAssignmentRepository)
+    def contractorTypeRepository = Mock(ContractorTypeRepository)
+    def contractorDataRepository = Mock(ContractorDataRepository)
 
     @Subject
-    UserAssignmentService service = new UserAssignmentService(
-        keycloakAdminService, assignmentRepository, contractorTypeRepository, contractorDataRepository)
+    def service = new UserAssignmentService(
+        keycloakAdminService,
+        assignmentRepository,
+        contractorTypeRepository,
+        contractorDataRepository
+    )
 
-    private static final String USER_ID = "user-uuid-1"
-
-    private KeycloakUserDto userDto(String id = USER_ID) {
-        new KeycloakUserDto(id, "jkowalski", "Jan", "Kowalski", "jan@example.com")
-    }
-
-    private ContractorType contractorType(Long id = 10L) {
-        new ContractorType(id, "OSDp", "Operator", false)
-    }
-
-    private ContractorData contractorData(String userId = USER_ID) {
-        new ContractorData(1L, userId, "OSDp", "Operator Systemu", "Op. Sys.", "12345", "1234567890",
-            "ul. Przykładowa 1", "CODE01", "AGR/2025/001", null, null)
-    }
+    def user1 = new KeycloakUserDto("id-1", "jan@pku.pl", "Jan", "Kowalski", "jan@pku.pl")
+    def user2 = new KeycloakUserDto("id-2", "anna@pku.pl", "Anna", "Nowak", "anna@pku.pl")
 
     // --- listKontrahentUsersWithTypes ---
 
-    def "listKontrahentUsersWithTypes returns users with their assigned contractor types"() {
+    def "listKontrahentUsersWithTypes returns users with their assignments and contractor data"() {
         given:
-        def user = userDto()
-        def type = contractorType()
-        def assignment = new UserContractorTypeAssignment(1L, USER_ID, type)
+        def ct = new ContractorType(1L, "OSDp", "Operator", true)
+        def assignment = new UserContractorTypeAssignment(1L, "id-1", ct)
 
-        keycloakAdminService.getKontrahentUsers() >> [user]
-        assignmentRepository.findByKeycloakUserIdIn([USER_ID]) >> [assignment]
-        contractorDataRepository.findByKeycloakUserIdIn([USER_ID]) >> []
+        def cd = new ContractorData()
+        cd.keycloakUserId = "id-1"
+        cd.contractorAbbreviation = "ABC"
+        cd.contractorFullName = "ABC S.A."
+        cd.contractorShortName = "ABC"
+
+        keycloakAdminService.getKontrahentUsers() >> [user1, user2]
+        assignmentRepository.findByKeycloakUserIdIn(["id-1", "id-2"]) >> [assignment]
+        contractorDataRepository.findByKeycloakUserIdIn(["id-1", "id-2"]) >> [cd]
 
         when:
         def result = service.listKontrahentUsersWithTypes()
 
         then:
-        result.size() == 1
-        with(result[0]) {
-            keycloakUserId() == USER_ID
-            username() == "jkowalski"
-            assignedTypes().size() == 1
-            assignedTypes()[0].symbol() == "OSDp"
-            contractorData() == null
-        }
+        result.size() == 2
+
+        result[0].keycloakUserId == "id-1"
+        result[0].assignedType != null
+        result[0].assignedType.symbol == "OSDp"
+        result[0].contractorData != null
+        result[0].contractorData.contractorAbbreviation() == "ABC"
+
+        result[1].keycloakUserId == "id-2"
+        result[1].assignedType == null
+        result[1].contractorData == null
     }
 
-    def "listKontrahentUsersWithTypes includes contractorData when available"() {
+    // --- updateAssignment ---
+
+    def "updateAssignment creates new assignment when none exists"() {
         given:
-        keycloakAdminService.getKontrahentUsers() >> [userDto()]
-        assignmentRepository.findByKeycloakUserIdIn([USER_ID]) >> []
-        contractorDataRepository.findByKeycloakUserIdIn([USER_ID]) >> [contractorData()]
+        def ct = new ContractorType(1L, "OSDp", "Operator", true)
+        contractorTypeRepository.findById(1L) >> Optional.of(ct)
+        assignmentRepository.findByKeycloakUserId("id-1") >> Optional.empty()
+        contractorDataRepository.findByKeycloakUserId("id-1") >> Optional.empty()
+        keycloakAdminService.getKontrahentUsers() >> [user1]
 
         when:
-        def result = service.listKontrahentUsersWithTypes()
+        def result = service.updateAssignment("id-1", 1L)
 
         then:
-        result[0].assignedTypes().isEmpty()
-        result[0].contractorData() != null
-        result[0].contractorData().agreementNumber() == "AGR/2025/001"
-    }
-
-    def "listKontrahentUsersWithTypes returns empty assignedTypes for users without assignments"() {
-        given:
-        keycloakAdminService.getKontrahentUsers() >> [userDto()]
-        assignmentRepository.findByKeycloakUserIdIn([USER_ID]) >> []
-        contractorDataRepository.findByKeycloakUserIdIn([USER_ID]) >> []
-
-        when:
-        def result = service.listKontrahentUsersWithTypes()
-
-        then:
-        result[0].assignedTypes().isEmpty()
-        result[0].contractorData() == null
-    }
-
-    def "listKontrahentUsersWithTypes returns empty list when no Keycloak users exist"() {
-        given:
-        keycloakAdminService.getKontrahentUsers() >> []
-        assignmentRepository.findByKeycloakUserIdIn([]) >> []
-        contractorDataRepository.findByKeycloakUserIdIn([]) >> []
-
-        when:
-        def result = service.listKontrahentUsersWithTypes()
-
-        then:
-        result.isEmpty()
-    }
-
-    // --- updateAssignments ---
-
-    def "updateAssignments replaces all assignments with new contractor types"() {
-        given:
-        def type = contractorType()
-        contractorTypeRepository.findAllById([10L]) >> [type]
-        contractorDataRepository.findByKeycloakUserId(USER_ID) >> Optional.empty()
-        keycloakAdminService.getKontrahentUsers() >> [userDto()]
-
-        when:
-        def result = service.updateAssignments(USER_ID, [10L])
-
-        then:
-        1 * assignmentRepository.deleteAllByKeycloakUserId(USER_ID)
-        1 * assignmentRepository.flush()
         1 * assignmentRepository.save({ UserContractorTypeAssignment a ->
-            a.keycloakUserId == USER_ID && a.contractorType == type
+            a.keycloakUserId == "id-1" && a.contractorType.id == 1L
         })
-        result.assignedTypes().size() == 1
-        result.assignedTypes()[0].symbol() == "OSDp"
+        result.assignedType.symbol == "OSDp"
     }
 
-    def "updateAssignments clears all assignments when list is empty"() {
+    def "updateAssignment updates existing assignment"() {
         given:
-        contractorDataRepository.findByKeycloakUserId(USER_ID) >> Optional.empty()
-        keycloakAdminService.getKontrahentUsers() >> [userDto()]
+        def oldCt = new ContractorType(1L, "OSDp", "Operator", true)
+        def newCt = new ContractorType(2L, "OK", "Odbiorca", true)
+        def existing = new UserContractorTypeAssignment(10L, "id-1", oldCt)
+
+        contractorTypeRepository.findById(2L) >> Optional.of(newCt)
+        assignmentRepository.findByKeycloakUserId("id-1") >> Optional.of(existing)
+        contractorDataRepository.findByKeycloakUserId("id-1") >> Optional.empty()
+        keycloakAdminService.getKontrahentUsers() >> [user1]
 
         when:
-        def result = service.updateAssignments(USER_ID, [])
+        def result = service.updateAssignment("id-1", 2L)
 
         then:
-        1 * assignmentRepository.deleteAllByKeycloakUserId(USER_ID)
+        1 * assignmentRepository.save({ UserContractorTypeAssignment a ->
+            a.contractorType.id == 2L
+        })
+        result.assignedType.symbol == "OK"
+    }
+
+    def "updateAssignment with null typeId removes assignment"() {
+        given:
+        keycloakAdminService.getKontrahentUsers() >> [user1]
+        contractorDataRepository.findByKeycloakUserId("id-1") >> Optional.empty()
+
+        when:
+        def result = service.updateAssignment("id-1", null)
+
+        then:
+        1 * assignmentRepository.deleteByKeycloakUserId("id-1")
         1 * assignmentRepository.flush()
-        0 * assignmentRepository.save(_)
-        result.assignedTypes().isEmpty()
+        result.assignedType == null
     }
 
-    def "updateAssignments clears all assignments when list is null"() {
+    def "updateAssignment throws when contractor type not found"() {
         given:
-        contractorDataRepository.findByKeycloakUserId(USER_ID) >> Optional.empty()
-        keycloakAdminService.getKontrahentUsers() >> [userDto()]
+        contractorTypeRepository.findById(99L) >> Optional.empty()
 
         when:
-        def result = service.updateAssignments(USER_ID, null)
-
-        then:
-        1 * assignmentRepository.deleteAllByKeycloakUserId(USER_ID)
-        0 * assignmentRepository.save(_)
-        result.assignedTypes().isEmpty()
-    }
-
-    def "updateAssignments includes contractorData in returned DTO when it exists"() {
-        given:
-        contractorTypeRepository.findAllById([10L]) >> [contractorType()]
-        contractorDataRepository.findByKeycloakUserId(USER_ID) >> Optional.of(contractorData())
-        keycloakAdminService.getKontrahentUsers() >> [userDto()]
-
-        when:
-        def result = service.updateAssignments(USER_ID, [10L])
-
-        then:
-        result.contractorData() != null
-        result.contractorData().agreementNumber() == "AGR/2025/001"
-    }
-
-    def "updateAssignments throws ResourceNotFoundException when user not found in Keycloak"() {
-        given:
-        contractorDataRepository.findByKeycloakUserId(USER_ID) >> Optional.empty()
-        keycloakAdminService.getKontrahentUsers() >> []
-
-        when:
-        service.updateAssignments(USER_ID, [])
+        service.updateAssignment("id-1", 99L)
 
         then:
         thrown(ResourceNotFoundException)
@@ -183,85 +130,90 @@ class UserAssignmentServiceSpec extends Specification {
 
     // --- updateAgreementNumber ---
 
-    def "updateAgreementNumber updates agreement number on existing ContractorData"() {
+    def "updateAgreementNumber updates existing contractor data"() {
         given:
-        def data = contractorData()
-        contractorDataRepository.findByKeycloakUserId(USER_ID) >> Optional.of(data)
+        def cd = new ContractorData()
+        cd.keycloakUserId = "id-1"
+        cd.contractorAbbreviation = "ABC"
+        cd.contractorFullName = "ABC S.A."
+        cd.contractorShortName = "ABC"
+
+        contractorDataRepository.findByKeycloakUserId("id-1") >> Optional.of(cd)
 
         when:
-        service.updateAgreementNumber(USER_ID, "NEW/AGR/2026")
+        service.updateAgreementNumber("id-1", "UPE/OSDp/ABC/2024")
 
         then:
         1 * contractorDataRepository.save({ ContractorData d ->
-            d.agreementNumber == "NEW/AGR/2026"
+            d.agreementNumber == "UPE/OSDp/ABC/2024"
         })
     }
 
-    def "updateAgreementNumber creates new ContractorData when none exists"() {
+    def "updateAgreementNumber creates new contractor data when none exists"() {
         given:
-        contractorDataRepository.findByKeycloakUserId(USER_ID) >> Optional.empty()
+        contractorDataRepository.findByKeycloakUserId("id-1") >> Optional.empty()
 
         when:
-        service.updateAgreementNumber(USER_ID, "NEW/AGR/2026")
+        service.updateAgreementNumber("id-1", "UPE/NEW/2024")
 
         then:
         1 * contractorDataRepository.save({ ContractorData d ->
-            d.keycloakUserId == USER_ID &&
-            d.agreementNumber == "NEW/AGR/2026" &&
-            d.contractorAbbreviation == "" &&
-            d.contractorFullName == "" &&
-            d.contractorShortName == ""
+            d.keycloakUserId == "id-1" &&
+            d.agreementNumber == "UPE/NEW/2024"
         })
     }
 
     // --- getCurrentUserContractorData ---
 
-    def "getCurrentUserContractorData returns full DTO with assignments and contractor data"() {
+    def "getCurrentUserContractorData returns full data for user"() {
         given:
-        def type = contractorType()
-        def assignment = new UserContractorTypeAssignment(1L, USER_ID, type)
-        keycloakAdminService.getKontrahentUsers() >> [userDto()]
-        contractorDataRepository.findByKeycloakUserId(USER_ID) >> Optional.of(contractorData())
-        assignmentRepository.findAllByKeycloakUserId(USER_ID) >> [assignment]
+        def ct = new ContractorType(1L, "OSDp", "Operator", true)
+        def assignment = new UserContractorTypeAssignment(1L, "id-1", ct)
+
+        def cd = new ContractorData()
+        cd.keycloakUserId = "id-1"
+        cd.contractorAbbreviation = "ABC"
+        cd.contractorFullName = "ABC S.A."
+        cd.contractorShortName = "ABC"
+        cd.agreementNumber = "UPE/OSDp/ABC/2024"
+
+        keycloakAdminService.getKontrahentUsers() >> [user1]
+        contractorDataRepository.findByKeycloakUserId("id-1") >> Optional.of(cd)
+        assignmentRepository.findByKeycloakUserId("id-1") >> Optional.of(assignment)
 
         when:
-        def result = service.getCurrentUserContractorData(USER_ID)
+        def result = service.getCurrentUserContractorData("id-1")
 
         then:
         result.firstName() == "Jan"
         result.lastName() == "Kowalski"
-        result.agreementNumber() == "AGR/2025/001"
-        result.contractorFullName() == "Operator Systemu"
-        result.contractorAbbreviation() == "OSDp"
-        result.assignedTypes().size() == 1
-        result.assignedTypes()[0].symbol() == "OSDp"
-        result.contractorData() != null
+        result.agreementNumber() == "UPE/OSDp/ABC/2024"
+        result.contractorFullName() == "ABC S.A."
+        result.assignedType().symbol() == "OSDp"
     }
 
-    def "getCurrentUserContractorData returns null fields when no contractor data exists"() {
+    def "getCurrentUserContractorData returns nulls when user has no data"() {
         given:
-        keycloakAdminService.getKontrahentUsers() >> [userDto()]
-        contractorDataRepository.findByKeycloakUserId(USER_ID) >> Optional.empty()
-        assignmentRepository.findAllByKeycloakUserId(USER_ID) >> []
+        keycloakAdminService.getKontrahentUsers() >> [user1]
+        contractorDataRepository.findByKeycloakUserId("id-1") >> Optional.empty()
+        assignmentRepository.findByKeycloakUserId("id-1") >> Optional.empty()
 
         when:
-        def result = service.getCurrentUserContractorData(USER_ID)
+        def result = service.getCurrentUserContractorData("id-1")
 
         then:
         result.firstName() == "Jan"
         result.agreementNumber() == null
         result.contractorFullName() == null
-        result.contractorAbbreviation() == null
-        result.assignedTypes().isEmpty()
-        result.contractorData() == null
+        result.assignedType() == null
     }
 
-    def "getCurrentUserContractorData throws ResourceNotFoundException when user not in Keycloak"() {
+    def "getCurrentUserContractorData throws when user not found in Keycloak"() {
         given:
         keycloakAdminService.getKontrahentUsers() >> []
 
         when:
-        service.getCurrentUserContractorData(USER_ID)
+        service.getCurrentUserContractorData("unknown")
 
         then:
         thrown(ResourceNotFoundException)
