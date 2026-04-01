@@ -1,6 +1,7 @@
 package pl.pse.pku.keycloak;
 
 import java.util.List;
+import java.util.Map;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,10 +36,79 @@ public class KeycloakAdminService {
     public List<KeycloakUserDto> getKontrahentUsers() {
         String token = getAdminToken();
         return restClient.get()
-            .uri(serverUrl + "/admin/realms/{realm}/roles/Kontrahent/users", realm)
+            .uri(serverUrl + "/admin/realms/{realm}/roles/Kontrahent/users?max=1000", realm)
             .header("Authorization", "Bearer " + token)
             .retrieve()
             .body(new ParameterizedTypeReference<>() {});
+    }
+
+    public String createUser(String username, String email, String firstName, String lastName, String password) {
+        String token = getAdminToken();
+
+        Map<String, Object> userRep = Map.of(
+            "username", username,
+            "email", email,
+            "emailVerified", true,
+            "enabled", true,
+            "firstName", firstName,
+            "lastName", lastName,
+            "credentials", List.of(Map.of(
+                "type", "password",
+                "value", password,
+                "temporary", false
+            ))
+        );
+
+        restClient.post()
+            .uri(serverUrl + "/admin/realms/{realm}/users", realm)
+            .header("Authorization", "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(userRep)
+            .retrieve()
+            .toBodilessEntity();
+
+        // Fetch the created user to get their ID
+        List<KeycloakUserDto> found = restClient.get()
+            .uri(serverUrl + "/admin/realms/{realm}/users?username={username}&exact=true", realm, username)
+            .header("Authorization", "Bearer " + token)
+            .retrieve()
+            .body(new ParameterizedTypeReference<>() {});
+
+        if (found == null || found.isEmpty()) {
+            throw new RuntimeException("Failed to find created user: " + username);
+        }
+        return found.getFirst().id();
+    }
+
+    public void assignRealmRole(String userId, String roleName) {
+        String token = getAdminToken();
+
+        // Get the role representation
+        record RoleRep(String id, String name) {}
+        var role = restClient.get()
+            .uri(serverUrl + "/admin/realms/{realm}/roles/{roleName}", realm, roleName)
+            .header("Authorization", "Bearer " + token)
+            .retrieve()
+            .body(RoleRep.class);
+
+        // Assign the role
+        restClient.post()
+            .uri(serverUrl + "/admin/realms/{realm}/users/{userId}/role-mappings/realm", realm, userId)
+            .header("Authorization", "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(List.of(Map.of("id", role.id(), "name", role.name())))
+            .retrieve()
+            .toBodilessEntity();
+    }
+
+    public boolean userExists(String username) {
+        String token = getAdminToken();
+        List<KeycloakUserDto> found = restClient.get()
+            .uri(serverUrl + "/admin/realms/{realm}/users?username={username}&exact=true", realm, username)
+            .header("Authorization", "Bearer " + token)
+            .retrieve()
+            .body(new ParameterizedTypeReference<>() {});
+        return found != null && !found.isEmpty();
     }
 
     private String getAdminToken() {

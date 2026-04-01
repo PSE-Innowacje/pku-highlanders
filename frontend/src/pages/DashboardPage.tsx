@@ -1,21 +1,48 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { fetchCurrentUserContractorData, type CurrentUserContractorData } from '../api/kontrahentUsers';
 
 export function DashboardPage() {
-  const { username, roles, isAdmin, isKontrahent } = useAuth();
+  const { displayName, roles, isAdmin, isKontrahent } = useAuth();
   const navigate = useNavigate();
+  const [contractorData, setContractorData] = useState<CurrentUserContractorData | null>(null);
 
   const displayRoles = roles.filter(r => r === 'Administrator' || r === 'Kontrahent');
+
+  useEffect(() => {
+    if (isKontrahent) {
+      fetchCurrentUserContractorData()
+        .then(setContractorData)
+        .catch(() => {});
+    }
+  }, [isKontrahent]);
 
   return (
     <div>
       <div className="dashboard-welcome">
-        <h1>Witaj, {username}</h1>
+        <h1>Witaj, {contractorData?.firstName && contractorData?.lastName
+          ? `${contractorData.firstName} ${contractorData.lastName}`
+          : displayName}</h1>
         <p>
           {displayRoles.length > 0
             ? `Twoje role: ${displayRoles.join(', ')}`
             : 'Brak przypisanych ról'}
         </p>
+        {isKontrahent && contractorData && (
+          <div style={{ marginTop: '8px' }}>
+            {contractorData.agreementNumber && (
+              <p style={{ margin: '4px 0' }}>
+                <strong>Numer umowy:</strong> {contractorData.agreementNumber}
+              </p>
+            )}
+            {contractorData.contractorFullName && (
+              <p style={{ margin: '4px 0' }}>
+                <strong>Nazwa kontrahenta:</strong> {contractorData.contractorFullName}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="dashboard-cards">

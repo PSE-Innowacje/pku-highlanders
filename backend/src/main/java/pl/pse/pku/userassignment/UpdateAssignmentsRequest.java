@@ -1,3 +1,5 @@
 package pl.pse.pku.userassignment;
 
-public record UpdateAssignmentsRequest(Long contractorTypeId) {}
+import java.util.List;
+
+public record UpdateAssignmentsRequest(List<Long> contractorTypeIds) {}

@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
 export function Sidebar() {
-  const { isAdmin, isKontrahent, username, logout } = useAuth();
+  const { isAdmin, isKontrahent, displayName, logout } = useAuth();
 
   return (
     <aside className="sidebar">
@@ -52,7 +52,7 @@ export function Sidebar() {
       </nav>
 
       <div className="sidebar-footer">
-        <span className="sidebar-user">{username}</span>
+        <span className="sidebar-user">{displayName}</span>
         <button className="btn btn-sm" onClick={logout}>Wyloguj</button>
       </div>
     </aside>
