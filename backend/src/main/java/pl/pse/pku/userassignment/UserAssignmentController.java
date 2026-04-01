@@ -17,11 +17,11 @@ public class UserAssignmentController {
         return service.listKontrahentUsersWithTypes();
     }
 
-    @PutMapping("/{keycloakUserId}/contractor-types")
-    public KontrahentUserWithTypesDto updateAssignments(
+    @PutMapping("/{keycloakUserId}/contractor-type")
+    public KontrahentUserWithTypesDto updateAssignment(
             @PathVariable String keycloakUserId,
             @RequestBody UpdateAssignmentsRequest request) {
-        return service.updateAssignments(keycloakUserId, request.contractorTypeIds());
+        return service.updateAssignment(keycloakUserId, request.contractorTypeId());
     }
 
     @PutMapping("/{keycloakUserId}/agreement-number")

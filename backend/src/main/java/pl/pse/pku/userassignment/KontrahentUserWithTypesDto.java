@@ -1,7 +1,5 @@
 package pl.pse.pku.userassignment;
 
-import java.util.List;
-
 import pl.pse.pku.contractordata.ContractorDataDto;
 import pl.pse.pku.contractortype.ContractorTypeDto;
 
@@ -11,6 +9,6 @@ public record KontrahentUserWithTypesDto(
     String firstName,
     String lastName,
     String email,
-    List<ContractorTypeDto> assignedTypes,
+    ContractorTypeDto assignedType,
     ContractorDataDto contractorData
 ) {}

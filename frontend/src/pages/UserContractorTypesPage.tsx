@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   fetchKontrahentUsers,
-  updateUserAssignments,
+  updateUserAssignment,
   updateAgreementNumber,
   type KontrahentUser,
 } from '../api/kontrahentUsers';
@@ -13,7 +13,7 @@ export function UserContractorTypesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [typeSelections, setTypeSelections] = useState<Map<string, Set<number>>>(new Map());
+  const [typeSelections, setTypeSelections] = useState<Map<string, number | null>>(new Map());
   const [agreementInputs, setAgreementInputs] = useState<Map<string, string>>(new Map());
   const [saving, setSaving] = useState<Set<string>>(new Set());
   const [saveSuccess, setSaveSuccess] = useState<Set<string>>(new Set());
@@ -31,10 +31,10 @@ export function UserContractorTypesPage() {
       setUsers(usersData);
       setAllTypes(typesData);
 
-      const typeSels = new Map<string, Set<number>>();
+      const typeSels = new Map<string, number | null>();
       const agrInputs = new Map<string, string>();
       usersData.forEach(user => {
-        typeSels.set(user.keycloakUserId, new Set(user.assignedTypes.map(t => t.id)));
+        typeSels.set(user.keycloakUserId, user.assignedType?.id ?? null);
         agrInputs.set(user.keycloakUserId, user.contractorData?.agreementNumber ?? '');
       });
       setTypeSelections(typeSels);
@@ -50,16 +50,11 @@ export function UserContractorTypesPage() {
     loadData();
   }, []);
 
-  const handleTypeToggle = (userId: string, typeId: number) => {
+  const handleTypeSelect = (userId: string, value: string) => {
+    const typeId = value === '' ? null : Number(value);
     setTypeSelections(prev => {
       const next = new Map(prev);
-      const current = new Set(prev.get(userId) ?? []);
-      if (current.has(typeId)) {
-        current.delete(typeId);
-      } else {
-        current.add(typeId);
-      }
-      next.set(userId, current);
+      next.set(userId, typeId);
       return next;
     });
     clearSuccess(userId);
@@ -83,36 +78,34 @@ export function UserContractorTypesPage() {
   };
 
   const hasChanges = (user: KontrahentUser): boolean => {
-    const currentTypeIds = new Set(user.assignedTypes.map(t => t.id));
-    const selectedTypeIds = typeSelections.get(user.keycloakUserId) ?? new Set();
-    const typesChanged = currentTypeIds.size !== selectedTypeIds.size ||
-      [...currentTypeIds].some(id => !selectedTypeIds.has(id));
+    const currentTypeId = user.assignedType?.id ?? null;
+    const selectedTypeId = typeSelections.get(user.keycloakUserId) ?? null;
+    const typeChanged = currentTypeId !== selectedTypeId;
 
     const currentAgreement = user.contractorData?.agreementNumber ?? '';
     const inputAgreement = agreementInputs.get(user.keycloakUserId) ?? '';
     const agreementChanged = currentAgreement !== inputAgreement;
 
-    return typesChanged || agreementChanged;
+    return typeChanged || agreementChanged;
   };
 
   const handleSave = async (userId: string) => {
-    const typeIds = [...(typeSelections.get(userId) ?? [])];
+    const typeId = typeSelections.get(userId) ?? null;
     const agreement = agreementInputs.get(userId) ?? '';
     setSaving(prev => new Set(prev).add(userId));
     setError(null);
     try {
-      const [updated] = await Promise.all([
-        updateUserAssignments(userId, typeIds),
+      await Promise.all([
+        updateUserAssignment(userId, typeId),
         updateAgreementNumber(userId, agreement),
       ]);
-      // Re-fetch to get consistent state
       const freshUsers = await fetchKontrahentUsers();
       setUsers(freshUsers);
       const freshUser = freshUsers.find(u => u.keycloakUserId === userId);
       if (freshUser) {
         setTypeSelections(prev => {
           const next = new Map(prev);
-          next.set(userId, new Set(freshUser.assignedTypes.map(t => t.id)));
+          next.set(userId, freshUser.assignedType?.id ?? null);
           return next;
         });
         setAgreementInputs(prev => {
@@ -154,13 +147,13 @@ export function UserContractorTypesPage() {
             <th>Użytkownik</th>
             <th>Email</th>
             <th>Numer umowy</th>
-            <th>Typy kontrahenta</th>
+            <th>Typ kontrahenta</th>
             <th>Akcje</th>
           </tr>
         </thead>
         <tbody>
           {users.map(user => {
-            const selectedTypeIds = typeSelections.get(user.keycloakUserId) ?? new Set();
+            const selectedTypeId = typeSelections.get(user.keycloakUserId) ?? '';
             const isSaving = saving.has(user.keycloakUserId);
             const isSuccess = saveSuccess.has(user.keycloakUserId);
             const changed = hasChanges(user);
@@ -170,7 +163,6 @@ export function UserContractorTypesPage() {
               <tr key={user.keycloakUserId}>
                 <td>
                   <button
-                    className="link-button"
                     onClick={() => setDetailUser(user)}
                     style={{
                       background: 'none',
@@ -200,19 +192,19 @@ export function UserContractorTypesPage() {
                   />
                 </td>
                 <td>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <select
+                    className="select"
+                    value={selectedTypeId === null ? '' : selectedTypeId}
+                    onChange={e => handleTypeSelect(user.keycloakUserId, e.target.value)}
+                    disabled={isSaving}
+                  >
+                    <option value="">-- Brak --</option>
                     {allTypes.map(type => (
-                      <label key={type.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                        <input
-                          type="checkbox"
-                          checked={selectedTypeIds.has(type.id)}
-                          onChange={() => handleTypeToggle(user.keycloakUserId, type.id)}
-                          disabled={isSaving}
-                        />
-                        <span style={{ fontSize: '0.85rem' }}>{type.symbol} — {type.name}</span>
-                      </label>
+                      <option key={type.id} value={type.id}>
+                        {type.symbol} — {type.name}
+                      </option>
                     ))}
-                  </div>
+                  </select>
                 </td>
                 <td>
                   <button
@@ -279,12 +271,8 @@ export function UserContractorTypesPage() {
                 <div>{detailUser.contractorData?.contractorCode || '—'}</div>
               </div>
               <div>
-                <strong>Typy kontrahenta:</strong>
-                <div>
-                  {detailUser.assignedTypes.length > 0
-                    ? detailUser.assignedTypes.map(t => t.symbol).join(', ')
-                    : '—'}
-                </div>
+                <strong>Typ kontrahenta:</strong>
+                <div>{detailUser.assignedType ? `${detailUser.assignedType.symbol} — ${detailUser.assignedType.name}` : '—'}</div>
               </div>
               <div>
                 <strong>Numer umowy:</strong>

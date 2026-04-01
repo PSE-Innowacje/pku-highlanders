@@ -36,7 +36,7 @@ export interface KontrahentUser {
   firstName: string;
   lastName: string;
   email: string;
-  assignedTypes: ContractorTypeRef[];
+  assignedType: ContractorTypeRef | null;
   contractorData: ContractorData | null;
 }
 
@@ -46,7 +46,7 @@ export interface CurrentUserContractorData {
   agreementNumber: string | null;
   contractorFullName: string | null;
   contractorAbbreviation: string | null;
-  assignedTypes: ContractorTypeRef[];
+  assignedType: ContractorTypeRef | null;
   contractorData: ContractorData | null;
 }
 
@@ -56,14 +56,14 @@ export async function fetchKontrahentUsers(): Promise<KontrahentUser[]> {
   return res.json();
 }
 
-export async function updateUserAssignments(
+export async function updateUserAssignment(
   keycloakUserId: string,
-  contractorTypeIds: number[]
+  contractorTypeId: number | null
 ): Promise<KontrahentUser> {
-  const res = await fetch(`${BASE}/${keycloakUserId}/contractor-types`, {
+  const res = await fetch(`${BASE}/${keycloakUserId}/contractor-type`, {
     method: 'PUT',
     headers: await authHeaders(),
-    body: JSON.stringify({ contractorTypeIds }),
+    body: JSON.stringify({ contractorTypeId }),
   });
   if (!res.ok) {
     const err = await res.json();
