@@ -5,12 +5,12 @@ import java.util.List;
 import pl.pse.pku.contractordata.ContractorDataDto;
 import pl.pse.pku.contractortype.ContractorTypeDto;
 
-public record KontrahentUserWithTypesDto(
-    String keycloakUserId,
-    String username,
+public record CurrentUserContractorDto(
     String firstName,
     String lastName,
-    String email,
+    String agreementNumber,
+    String contractorFullName,
+    String contractorAbbreviation,
     List<ContractorTypeDto> assignedTypes,
     ContractorDataDto contractorData
 ) {}

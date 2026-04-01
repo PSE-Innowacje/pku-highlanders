@@ -24,14 +24,14 @@ export function DeclarationTypePreviewPage() {
     })();
   }, [code]);
 
-  if (loading) return <p>Ładowanie...</p>;
+  if (loading) return <div className="loading">Ładowanie...</div>;
   if (error) return <div className="alert alert-error">{error}</div>;
   if (!detail) return null;
 
   return (
     <div>
-      <button className="btn btn-sm" onClick={() => navigate('/admin/declaration-types')} style={{ marginBottom: '1rem' }}>
-        ← Powrót do listy
+      <button className="btn" onClick={() => navigate('/admin/declaration-types')} style={{ marginBottom: '1.5rem' }}>
+        &#8592; Powrót do listy
       </button>
 
       <h1>{detail.code} — {detail.name}</h1>

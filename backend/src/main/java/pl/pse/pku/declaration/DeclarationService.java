@@ -101,27 +101,40 @@ public class DeclarationService {
 
     @Transactional
     public List<DeclarationDto> generateDeclarations(String keycloakUserId) {
-        var assignment = assignmentRepository.findByKeycloakUserId(keycloakUserId)
-            .orElseThrow(() -> new BusinessException("Nie masz przypisanego typu kontrahenta"));
-
-        var contractorType = assignment.getContractorType();
-        var declarationTypes = contractorType.getDeclarationTypes();
-
-        if (declarationTypes.isEmpty()) {
-            throw new BusinessException("Typ kontrahenta '" + contractorType.getSymbol() + "' nie ma przypisanych typów oświadczeń");
+        var assignments = assignmentRepository.findAllByKeycloakUserId(keycloakUserId);
+        if (assignments.isEmpty()) {
+            throw new BusinessException("Nie masz przypisanego typu kontrahenta");
         }
 
+        boolean anyDeclarationTypes = false;
         LocalDateTime now = LocalDateTime.now();
-        for (DeclarationType dt : declarationTypes) {
-            if (!declarationRepository.existsByKeycloakUserIdAndDeclarationTypeId(keycloakUserId, dt.getId())) {
-                var declaration = new Declaration();
-                declaration.setDeclarationNumber(generateNumber(dt, contractorType.getSymbol()));
-                declaration.setStatus(DeclarationStatus.NIE_ZLOZONE);
-                declaration.setKeycloakUserId(keycloakUserId);
-                declaration.setDeclarationType(dt);
-                declaration.setCreatedAt(now);
-                declarationRepository.save(declaration);
+
+        for (var assignment : assignments) {
+            var contractorType = assignment.getContractorType();
+            var declarationTypes = contractorType.getDeclarationTypes();
+
+            if (!declarationTypes.isEmpty()) {
+                anyDeclarationTypes = true;
             }
+
+            for (DeclarationType dt : declarationTypes) {
+                if (!declarationRepository.existsByKeycloakUserIdAndDeclarationTypeId(keycloakUserId, dt.getId())) {
+                    var declaration = new Declaration();
+                    declaration.setDeclarationNumber(generateNumber(dt, contractorType.getSymbol()));
+                    declaration.setStatus(DeclarationStatus.NIE_ZLOZONE);
+                    declaration.setKeycloakUserId(keycloakUserId);
+                    declaration.setDeclarationType(dt);
+                    declaration.setCreatedAt(now);
+                    declarationRepository.save(declaration);
+                }
+            }
+        }
+
+        if (!anyDeclarationTypes) {
+            var symbols = assignments.stream()
+                .map(a -> a.getContractorType().getSymbol())
+                .toList();
+            throw new BusinessException("Typy kontrahenta " + symbols + " nie mają przypisanych typów oświadczeń");
         }
 
         return declarationRepository.findByKeycloakUserIdOrderByCreatedAtDesc(keycloakUserId).stream()
