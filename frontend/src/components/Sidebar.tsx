@@ -25,9 +25,13 @@ export function Sidebar() {
         {isKontrahent && (
           <div className="nav-section">
             <span className="nav-section-title">PKU Rozliczenia</span>
-            <NavLink to="/declarations" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
+            <NavLink to="/declarations/pending" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
               <span className="nav-icon">&#9993;</span>
-              Lista oświadczeń
+              Niezłożone
+            </NavLink>
+            <NavLink to="/declarations/submitted" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
+              <span className="nav-icon">&#10003;</span>
+              Złożone
             </NavLink>
           </div>
         )}

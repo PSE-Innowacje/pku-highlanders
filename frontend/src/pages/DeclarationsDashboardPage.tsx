@@ -8,18 +8,24 @@ import {
   type Declaration,
   type DeclarationDetail,
 } from '../api/declarations';
-import { buildFormulaMap, recalculate, getInputProps } from '../utils/fieldFormulas';
+import { buildFormulaMap, recalculate, getInputProps, validateFieldValue } from '../utils/fieldFormulas';
 
-export function DeclarationsDashboardPage() {
-  const [declarations, setDeclarations] = useState<Declaration[]>([]);
+interface Props {
+  filter: 'pending' | 'submitted';
+}
+
+export function DeclarationsDashboardPage({ filter }: Props) {
+  const [allDeclarations, setAllDeclarations] = useState<Declaration[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fill modal state
+  // Modal state
   const [detail, setDetail] = useState<DeclarationDetail | null>(null);
-  const [showFillModal, setShowFillModal] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [viewMode, setViewMode] = useState<'fill' | 'view'>('fill');
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({});
   const [comment, setComment] = useState('');
   const [saving, setSaving] = useState(false);
   const [fillError, setFillError] = useState<string | null>(null);
@@ -29,12 +35,23 @@ export function DeclarationsDashboardPage() {
     [detail]
   );
 
+  const declarations = useMemo(() => {
+    if (filter === 'pending') {
+      return allDeclarations.filter(d => d.status === 'NIE_ZLOZONE' || d.status === 'ROBOCZE');
+    }
+    return allDeclarations.filter(d => d.status === 'ZLOZONE');
+  }, [allDeclarations, filter]);
+
+  const hasValidationErrors = useMemo(() => {
+    return Object.values(fieldErrors).some(e => e !== null);
+  }, [fieldErrors]);
+
   const loadDeclarations = async () => {
     try {
       setLoading(true);
       setError(null);
       const data = await fetchMyDeclarations();
-      setDeclarations(data);
+      setAllDeclarations(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Nieznany błąd');
     } finally {
@@ -51,7 +68,7 @@ export function DeclarationsDashboardPage() {
     setError(null);
     try {
       const data = await generateDeclarations();
-      setDeclarations(data);
+      setAllDeclarations(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Nieznany błąd');
     } finally {
@@ -59,40 +76,56 @@ export function DeclarationsDashboardPage() {
     }
   };
 
-  const openFillModal = async (id: number) => {
+  const openModal = async (id: number, mode: 'fill' | 'view') => {
     setFillError(null);
     try {
       const d = await fetchDeclarationDetail(id);
       setDetail(d);
+      setViewMode(mode);
       const initialValues = d.fieldValues ?? {};
       const fm = buildFormulaMap(d.fields);
-      setFieldValues(recalculate(initialValues, fm, d.fields));
+      const computed = recalculate(initialValues, fm, d.fields);
+      setFieldValues(computed);
+      const errors: Record<string, string | null> = {};
+      d.fields.forEach(f => {
+        errors[f.fieldCode] = validateFieldValue(computed[f.fieldCode] ?? '', f.dataType);
+      });
+      setFieldErrors(errors);
       setComment(d.comment ?? '');
-      setShowFillModal(true);
+      setShowModal(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Nieznany błąd');
     }
   };
 
-  const closeFillModal = () => {
-    setShowFillModal(false);
+  const closeModal = () => {
+    setShowModal(false);
     setDetail(null);
     setFillError(null);
+    setFieldErrors({});
   };
 
   const handleFieldChange = (fieldCode: string, value: string) => {
     if (!detail) return;
+
     const updated = { ...fieldValues, [fieldCode]: value };
-    setFieldValues(recalculate(updated, formulaMap, detail.fields));
+    const recalculated = recalculate(updated, formulaMap, detail.fields);
+    setFieldValues(recalculated);
+
+    const errors = { ...fieldErrors };
+    detail.fields.forEach(f => {
+      errors[f.fieldCode] = validateFieldValue(recalculated[f.fieldCode] ?? '', f.dataType);
+    });
+    setFieldErrors(errors);
   };
 
   const handleSave = async () => {
-    if (!detail) return;
+    if (!detail || hasValidationErrors) return;
     setSaving(true);
     setFillError(null);
     try {
       await saveDeclaration(detail.id, fieldValues, comment || null);
-      closeFillModal();
+      closeModal();
       await loadDeclarations();
     } catch (e) {
       setFillError(e instanceof Error ? e.message : 'Nieznany błąd');
@@ -130,16 +163,20 @@ export function DeclarationsDashboardPage() {
 
   const canFill = (status: string) => status === 'NIE_ZLOZONE' || status === 'ROBOCZE';
   const canSubmit = (status: string) => status === 'ROBOCZE';
+  const isReadOnly = viewMode === 'view';
+  const isPending = filter === 'pending';
 
   if (loading) return <div className="loading">Ładowanie...</div>;
 
   return (
     <div>
       <div className="page-header">
-        <h1>Lista oświadczeń</h1>
-        <button className="btn btn-primary" onClick={handleGenerate} disabled={generating}>
-          {generating ? 'Generowanie...' : 'Wygeneruj oświadczenia'}
-        </button>
+        <h1>{isPending ? 'Lista oświadczeń - niezłożone' : 'Lista oświadczeń - złożone'}</h1>
+        {isPending && (
+          <button className="btn btn-primary" onClick={handleGenerate} disabled={generating}>
+            {generating ? 'Generowanie...' : 'Wygeneruj oświadczenia'}
+          </button>
+        )}
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
@@ -147,7 +184,10 @@ export function DeclarationsDashboardPage() {
       {declarations.length === 0 ? (
         <div className="empty-state">
           <div className="empty-state-icon">&#9993;</div>
-          <p>Brak oświadczeń. Kliknij "Wygeneruj oświadczenia" aby utworzyć oświadczenia na podstawie przypisanego typu kontrahenta.</p>
+          <p>{isPending
+            ? 'Brak niezłożonych oświadczeń. Kliknij "Wygeneruj oświadczenia" aby utworzyć oświadczenia na podstawie przypisanego typu kontrahenta.'
+            : 'Brak złożonych oświadczeń.'
+          }</p>
         </div>
       ) : (
         <table className="table">
@@ -164,27 +204,56 @@ export function DeclarationsDashboardPage() {
           <tbody>
             {declarations.map(d => (
               <tr key={d.id}>
-                <td><code>{d.declarationNumber}</code></td>
+                <td>
+                  {d.status === 'ZLOZONE' ? (
+                    <button
+                      onClick={() => openModal(d.id, 'view')}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--primary)',
+                        cursor: 'pointer',
+                        padding: 0,
+                        font: 'inherit',
+                        textDecoration: 'underline',
+                      }}
+                    >
+                      <code>{d.declarationNumber}</code>
+                    </button>
+                  ) : (
+                    <code>{d.declarationNumber}</code>
+                  )}
+                </td>
                 <td><strong>{d.declarationTypeCode}</strong></td>
                 <td>{d.declarationTypeName}</td>
                 <td><span className={statusBadgeClass(d.status)}>{d.statusLabel}</span></td>
                 <td>{new Date(d.createdAt).toLocaleString('pl-PL')}</td>
                 <td>
                   <div style={{ display: 'flex', gap: '0.25rem' }}>
-                    <button
-                      className="btn btn-sm btn-primary"
-                      onClick={() => openFillModal(d.id)}
-                      disabled={!canFill(d.status)}
-                    >
-                      Wypełnij
-                    </button>
-                    <button
-                      className="btn btn-sm btn-success"
-                      onClick={() => handleSubmit(d.id)}
-                      disabled={!canSubmit(d.status)}
-                    >
-                      Wyślij
-                    </button>
+                    {canFill(d.status) && (
+                      <button
+                        className="btn btn-sm btn-primary"
+                        onClick={() => openModal(d.id, 'fill')}
+                      >
+                        Wypełnij
+                      </button>
+                    )}
+                    {canSubmit(d.status) && (
+                      <button
+                        className="btn btn-sm btn-success"
+                        onClick={() => handleSubmit(d.id)}
+                      >
+                        Wyślij
+                      </button>
+                    )}
+                    {d.status === 'ZLOZONE' && (
+                      <button
+                        className="btn btn-sm"
+                        onClick={() => openModal(d.id, 'view')}
+                      >
+                        Podgląd
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -193,10 +262,10 @@ export function DeclarationsDashboardPage() {
         </table>
       )}
 
-      {showFillModal && detail && (
-        <div className="modal-overlay" onClick={closeFillModal}>
+      {showModal && detail && (
+        <div className="modal-overlay" onClick={closeModal}>
           <div className="modal modal-wide" onClick={e => e.stopPropagation()}>
-            <h2>Wypełnij oświadczenie</h2>
+            <h2>{isReadOnly ? 'Podgląd oświadczenia' : 'Wypełnij oświadczenie'}</h2>
             <div className="detail-info" style={{ marginBottom: '1rem' }}>
               <p><strong>Numer:</strong> {detail.declarationNumber}</p>
               <p><strong>Typ:</strong> {detail.declarationTypeCode} — {detail.declarationTypeName}</p>
@@ -219,6 +288,7 @@ export function DeclarationsDashboardPage() {
                 {detail.fields.map(f => {
                   const isComputed = formulaMap.has(f.fieldCode);
                   const inputProps = getInputProps(f.dataType);
+                  const fieldError = fieldErrors[f.fieldCode];
                   return (
                     <tr key={f.fieldCode}>
                       <td>{f.position}</td>
@@ -236,10 +306,16 @@ export function DeclarationsDashboardPage() {
                           className={`field-input ${isComputed ? 'field-computed' : ''}`}
                           value={fieldValues[f.fieldCode] ?? ''}
                           onChange={e => handleFieldChange(f.fieldCode, e.target.value)}
-                          readOnly={isComputed}
-                          tabIndex={isComputed ? -1 : undefined}
+                          readOnly={isReadOnly || isComputed}
+                          tabIndex={isReadOnly || isComputed ? -1 : undefined}
                           placeholder={isComputed ? 'Auto' : f.dataType}
+                          style={fieldError ? { borderColor: 'var(--danger)', boxShadow: '0 0 0 1px var(--danger)' } : undefined}
                         />
+                        {fieldError && !isReadOnly && (
+                          <div style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '2px' }}>
+                            {fieldError}
+                          </div>
+                        )}
                       </td>
                       <td>{f.unit}</td>
                     </tr>
@@ -257,15 +333,18 @@ export function DeclarationsDashboardPage() {
                   rows={3}
                   value={comment}
                   onChange={e => setComment(e.target.value)}
+                  readOnly={isReadOnly}
                 />
               </div>
             )}
 
             <div className="modal-actions">
-              <button className="btn" onClick={closeFillModal}>Anuluj</button>
-              <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-                {saving ? 'Zapisywanie...' : 'Zapisz'}
-              </button>
+              <button className="btn" onClick={closeModal}>{isReadOnly ? 'Zamknij' : 'Anuluj'}</button>
+              {!isReadOnly && (
+                <button className="btn btn-primary" onClick={handleSave} disabled={saving || hasValidationErrors}>
+                  {saving ? 'Zapisywanie...' : 'Zapisz'}
+                </button>
+              )}
             </div>
           </div>
         </div>

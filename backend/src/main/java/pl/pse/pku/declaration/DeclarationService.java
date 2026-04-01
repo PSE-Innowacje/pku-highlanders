@@ -10,10 +10,14 @@ import java.util.concurrent.ThreadLocalRandom;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import pl.pse.pku.contractordata.ContractorData;
+import pl.pse.pku.contractordata.ContractorDataRepository;
 import pl.pse.pku.declarationtype.DeclarationType;
+import pl.pse.pku.declarationtype.DeclarationTypeField;
 import pl.pse.pku.declarationtype.DeclarationTypeFieldDto;
 import pl.pse.pku.exception.BusinessException;
 import pl.pse.pku.exception.ResourceNotFoundException;
+import pl.pse.pku.keycloak.KeycloakAdminService;
 import pl.pse.pku.userassignment.UserContractorTypeAssignmentRepository;
 
 @Service
@@ -22,6 +26,8 @@ public class DeclarationService {
 
     private final DeclarationRepository declarationRepository;
     private final UserContractorTypeAssignmentRepository assignmentRepository;
+    private final ContractorDataRepository contractorDataRepository;
+    private final KeycloakAdminService keycloakAdminService;
 
     @Transactional(readOnly = true)
     public List<DeclarationDto> getMyDeclarations(String keycloakUserId) {
@@ -44,6 +50,15 @@ public class DeclarationService {
             throw new BusinessException("Oświadczenie w statusie '" + statusLabel(declaration.getStatus()) + "' nie może być edytowane");
         }
 
+        if (fieldValues != null) {
+            for (var field : declaration.getDeclarationType().getFields()) {
+                var value = fieldValues.get(field.getFieldCode());
+                if (value != null && !value.isBlank()) {
+                    validateFieldValue(field, value);
+                }
+            }
+        }
+
         declaration.setFieldValues(fieldValues != null ? fieldValues : Map.of());
         declaration.setComment(comment);
         declaration.setStatus(DeclarationStatus.ROBOCZE);
@@ -59,14 +74,15 @@ public class DeclarationService {
         }
 
         // Validate required fields
-        var requiredFields = declaration.getDeclarationType().getFields().stream()
-            .filter(f -> f.isRequired())
-            .toList();
+        var allFields = declaration.getDeclarationType().getFields();
         var values = declaration.getFieldValues();
-        for (var field : requiredFields) {
+        for (var field : allFields) {
             var value = values.get(field.getFieldCode());
-            if (value == null || value.isBlank()) {
+            if (field.isRequired() && (value == null || value.isBlank())) {
                 throw new BusinessException("Pole '" + field.getFieldName() + "' (" + field.getFieldCode() + ") jest wymagane");
+            }
+            if (value != null && !value.isBlank()) {
+                validateFieldValue(field, value);
             }
         }
 
@@ -81,8 +97,44 @@ public class DeclarationService {
         json.put("status", "Złożone");
         json.put("submittedAt", LocalDateTime.now().toString());
 
+        // Contractor data
+        var assignment = assignmentRepository.findByKeycloakUserId(keycloakUserId).orElse(null);
+        var contractorData = contractorDataRepository.findByKeycloakUserId(keycloakUserId).orElse(null);
+        Map<String, Object> contractorJson = new LinkedHashMap<>();
+        if (assignment != null) {
+            contractorJson.put("contractorType", assignment.getContractorType().getSymbol());
+            contractorJson.put("contractorTypeName", assignment.getContractorType().getName());
+        }
+        if (contractorData != null) {
+            contractorJson.put("contractorAbbreviation", contractorData.getContractorAbbreviation());
+            contractorJson.put("contractorFullName", contractorData.getContractorFullName());
+            contractorJson.put("contractorShortName", contractorData.getContractorShortName());
+            contractorJson.put("krs", contractorData.getKrs());
+            contractorJson.put("nip", contractorData.getNip());
+            contractorJson.put("registeredAddress", contractorData.getRegisteredAddress());
+            contractorJson.put("agreementNumber", contractorData.getAgreementNumber());
+            contractorJson.put("agreementDateFrom", contractorData.getAgreementDateFrom() != null ? contractorData.getAgreementDateFrom().toString() : null);
+            contractorJson.put("agreementDateTo", contractorData.getAgreementDateTo() != null ? contractorData.getAgreementDateTo().toString() : null);
+        }
+        json.put("contractor", contractorJson);
+
+        // Submitter info
+        try {
+            var user = keycloakAdminService.getKontrahentUsers().stream()
+                .filter(u -> u.id().equals(keycloakUserId))
+                .findFirst().orElse(null);
+            if (user != null) {
+                json.put("submitter", Map.of(
+                    "firstName", user.firstName() != null ? user.firstName() : "",
+                    "lastName", user.lastName() != null ? user.lastName() : "",
+                    "email", user.email() != null ? user.email() : ""));
+            }
+        } catch (Exception ignored) {
+            // Keycloak lookup failure should not block submission
+        }
+
         Map<String, Object> fieldsJson = new LinkedHashMap<>();
-        for (var field : declaration.getDeclarationType().getFields()) {
+        for (var field : allFields) {
             var val = values.getOrDefault(field.getFieldCode(), "");
             fieldsJson.put(field.getFieldCode(), Map.of(
                 "name", field.getFieldName(),
@@ -136,6 +188,25 @@ public class DeclarationService {
             throw new BusinessException("Brak dostępu do tego oświadczenia");
         }
         return declaration;
+    }
+
+    private void validateFieldValue(DeclarationTypeField field, String value) {
+        var matcher = java.util.regex.Pattern.compile("Number\\s*\\((\\d+),(\\d+)\\)").matcher(field.getDataType());
+        if (matcher.find()) {
+            int maxIntDigits = Integer.parseInt(matcher.group(1));
+            int maxDecDigits = Integer.parseInt(matcher.group(2));
+            String[] parts = value.split("\\.");
+            String intPart = parts[0].replaceFirst("^-?0*", "");
+            if (intPart.isEmpty()) intPart = "0";
+            if (intPart.length() > maxIntDigits) {
+                throw new BusinessException("Pole '" + field.getFieldName() + "' (" + field.getFieldCode()
+                    + ") — część całkowita nie może przekraczać " + maxIntDigits + " cyfr");
+            }
+            if (parts.length > 1 && parts[1].length() > maxDecDigits) {
+                throw new BusinessException("Pole '" + field.getFieldName() + "' (" + field.getFieldCode()
+                    + ") — część dziesiętna nie może przekraczać " + maxDecDigits + " cyfr");
+            }
+        }
     }
 
     private String generateNumber(DeclarationType dt, String contractorSymbol) {

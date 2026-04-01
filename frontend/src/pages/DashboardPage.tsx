@@ -47,7 +47,7 @@ export function DashboardPage() {
 
       <div className="dashboard-cards">
         {isKontrahent && (
-          <div className="dashboard-card" onClick={() => navigate('/declarations')} style={{ cursor: 'pointer' }}>
+          <div className="dashboard-card" onClick={() => navigate('/declarations/pending')} style={{ cursor: 'pointer' }}>
             <div className="dashboard-card-icon purple">&#9993;</div>
             <h3>Oświadczenia</h3>
             <p>Przeglądaj, wypełniaj i wysyłaj swoje oświadczenia rozliczeniowe.</p>

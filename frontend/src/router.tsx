@@ -49,9 +49,21 @@ export const router = createBrowserRouter([
       },
       {
         path: 'declarations',
+        element: <Navigate to="/declarations/pending" replace />,
+      },
+      {
+        path: 'declarations/pending',
         element: (
           <ProtectedRoute requiredRole="Kontrahent">
-            <DeclarationsDashboardPage />
+            <DeclarationsDashboardPage filter="pending" />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'declarations/submitted',
+        element: (
+          <ProtectedRoute requiredRole="Kontrahent">
+            <DeclarationsDashboardPage filter="submitted" />
           </ProtectedRoute>
         ),
       },

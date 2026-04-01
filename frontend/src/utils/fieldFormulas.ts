@@ -154,6 +154,27 @@ export function getInputProps(dataType: string): { step: string; min: string; ma
   return { step: '1', min: '0', max: '999999999' };
 }
 
+/**
+ * Validate a field value against its dataType constraints.
+ * Returns an error message or null if valid.
+ */
+export function validateFieldValue(value: string, dataType: string): string | null {
+  if (!value || value === '') return null;
+  const match = dataType.match(/Number\s*\((\d+),(\d+)\)/);
+  if (!match) return null;
+  const maxIntDigits = parseInt(match[1]);
+  const maxDecDigits = parseInt(match[2]);
+  const parts = value.split('.');
+  const intPart = parts[0].replace(/^-?0*/, '') || '0';
+  if (intPart.length > maxIntDigits) {
+    return `Maks. ${maxIntDigits} cyfr przed przecinkiem`;
+  }
+  if (parts.length > 1 && parts[1].length > maxDecDigits) {
+    return `Maks. ${maxDecDigits} cyfr po przecinku`;
+  }
+  return null;
+}
+
 function getDecimalPlaces(dataType: string): number {
   const match = dataType.match(/Number\s*\((\d+),(\d+)\)/);
   return match ? parseInt(match[2]) : 0;
