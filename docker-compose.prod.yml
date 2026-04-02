@@ -30,6 +30,8 @@ services:
       KC_PROXY_HEADERS: xforwarded
       KC_HOSTNAME: https://${APP_DOMAIN}
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+    volumes:
+      - ./keycloak/pku-realm.json:/opt/keycloak/data/import/pku-realm.json
     depends_on:
       postgres:
         condition: service_healthy
