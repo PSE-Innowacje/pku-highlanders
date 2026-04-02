@@ -15,6 +15,11 @@ public class DeclarationController {
 
     private final DeclarationService service;
 
+    @PostMapping("/generate")
+    public List<DeclarationDto> generateMyDeclarations(@AuthenticationPrincipal Jwt jwt) {
+        return service.generateDeclarationsForUser(jwt.getSubject());
+    }
+
     @GetMapping
     public List<DeclarationDto> getMyDeclarations(@AuthenticationPrincipal Jwt jwt) {
         return service.getMyDeclarations(jwt.getSubject());

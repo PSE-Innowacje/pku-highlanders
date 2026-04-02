@@ -43,6 +43,18 @@ export interface DeclarationDetail {
   fields: DeclarationField[];
 }
 
+export async function generateMyDeclarations(): Promise<Declaration[]> {
+  const res = await fetch(`${BASE}/generate`, {
+    method: 'POST',
+    headers: await authHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || `Błąd: ${res.status}`);
+  }
+  return res.json();
+}
+
 export async function fetchMyDeclarations(): Promise<Declaration[]> {
   const res = await fetch(BASE, { headers: await authHeaders() });
   if (!res.ok) throw new Error(`Błąd pobierania: ${res.status}`);

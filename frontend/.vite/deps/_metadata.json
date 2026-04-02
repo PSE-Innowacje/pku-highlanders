@@ -1,0 +1,78 @@
+{
+  "hash": "dec8e3c1",
+  "configHash": "e8325e64",
+  "lockfileHash": "5405729c",
+  "browserHash": "dede679b",
+  "optimized": {
+    "@mui/material/Autocomplete": {
+      "src": "../../node_modules/@mui/material/esm/Autocomplete/index.js",
+      "file": "@mui_material_Autocomplete.js",
+      "fileHash": "31c65997",
+      "needsInterop": false
+    },
+    "@mui/material/Chip": {
+      "src": "../../node_modules/@mui/material/esm/Chip/index.js",
+      "file": "@mui_material_Chip.js",
+      "fileHash": "aad5caa9",
+      "needsInterop": false
+    },
+    "@mui/material/TextField": {
+      "src": "../../node_modules/@mui/material/esm/TextField/index.js",
+      "file": "@mui_material_TextField.js",
+      "fileHash": "fdf53aa1",
+      "needsInterop": false
+    },
+    "keycloak-js": {
+      "src": "../../node_modules/keycloak-js/lib/keycloak.js",
+      "file": "keycloak-js.js",
+      "fileHash": "7f94fbb9",
+      "needsInterop": false
+    },
+    "react-dom/client": {
+      "src": "../../node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "3d6d8f12",
+      "needsInterop": true
+    },
+    "react-router-dom": {
+      "src": "../../node_modules/react-router-dom/dist/index.mjs",
+      "file": "react-router-dom.js",
+      "fileHash": "667b881e",
+      "needsInterop": false
+    },
+    "react": {
+      "src": "../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "0b2e63b1",
+      "needsInterop": true
+    },
+    "react/jsx-dev-runtime": {
+      "src": "../../node_modules/react/jsx-dev-runtime.js",
+      "file": "react_jsx-dev-runtime.js",
+      "fileHash": "b0419d46",
+      "needsInterop": true
+    }
+  },
+  "chunks": {
+    "ArrowDropDown-DXOyG_rd": {
+      "file": "ArrowDropDown-DXOyG_rd.js",
+      "isDynamicEntry": false
+    },
+    "Chip-Dq1RpyfY": {
+      "file": "Chip-Dq1RpyfY.js",
+      "isDynamicEntry": false
+    },
+    "TransitionGroupContext-Drr6K0za": {
+      "file": "TransitionGroupContext-Drr6K0za.js",
+      "isDynamicEntry": false
+    },
+    "react-TUYU05Ph": {
+      "file": "react-TUYU05Ph.js",
+      "isDynamicEntry": false
+    },
+    "react-dom-DMGCgcj7": {
+      "file": "react-dom-DMGCgcj7.js",
+      "isDynamicEntry": false
+    }
+  }
+}

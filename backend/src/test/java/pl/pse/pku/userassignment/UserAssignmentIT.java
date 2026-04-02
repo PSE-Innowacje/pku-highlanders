@@ -40,10 +40,10 @@ class UserAssignmentIT extends AbstractIT {
         mockMvc.perform(get("/api/admin/kontrahent-users").with(adminJwt()))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$", hasSize(2)))
-            .andExpect(jsonPath("$[?(@.keycloakUserId == '%s')].assignedTypes[0].symbol".formatted(USER_ID))
+            .andExpect(jsonPath("$[?(@.keycloakUserId == '%s')].assignedType.symbol".formatted(USER_ID))
                 .value(hasItem("OSDp")))
-            .andExpect(jsonPath("$[?(@.keycloakUserId == '%s')].assignedTypes".formatted(USER2_ID),
-                contains(empty())));
+            .andExpect(jsonPath("$[?(@.keycloakUserId == '%s')].assignedType".formatted(USER2_ID),
+                contains(nullValue())));
     }
 
     @Test
@@ -69,15 +69,15 @@ class UserAssignmentIT extends AbstractIT {
             new KeycloakUserDto(USER_ID, "jkowalski", "Jan", "Kowalski", "jan@example.com")
         ));
 
-        mockMvc.perform(put("/api/admin/kontrahent-users/%s/contractor-types".formatted(USER_ID))
+        mockMvc.perform(put("/api/admin/kontrahent-users/%s/contractor-type".formatted(USER_ID))
                 .with(adminJwt())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    {"contractorTypeIds": [%d]}
+                    {"contractorTypeId": %d}
                     """.formatted(contractorType.getId())))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.keycloakUserId").value(USER_ID))
-            .andExpect(jsonPath("$.assignedTypes[0].symbol").value("OSDp"));
+            .andExpect(jsonPath("$.assignedType.symbol").value("OSDp"));
     }
 
     @Test
@@ -90,14 +90,14 @@ class UserAssignmentIT extends AbstractIT {
             new KeycloakUserDto(USER_ID, "jkowalski", "Jan", "Kowalski", "jan@example.com")
         ));
 
-        mockMvc.perform(put("/api/admin/kontrahent-users/%s/contractor-types".formatted(USER_ID))
+        mockMvc.perform(put("/api/admin/kontrahent-users/%s/contractor-type".formatted(USER_ID))
                 .with(adminJwt())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    {"contractorTypeIds": [%d]}
+                    {"contractorTypeId": %d}
                     """.formatted(ok.getId())))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.assignedTypes[0].symbol").value("OK"));
+            .andExpect(jsonPath("$.assignedType.symbol").value("OK"));
     }
 
     @Test
@@ -109,25 +109,25 @@ class UserAssignmentIT extends AbstractIT {
             new KeycloakUserDto(USER_ID, "jkowalski", "Jan", "Kowalski", "jan@example.com")
         ));
 
-        mockMvc.perform(put("/api/admin/kontrahent-users/%s/contractor-types".formatted(USER_ID))
+        mockMvc.perform(put("/api/admin/kontrahent-users/%s/contractor-type".formatted(USER_ID))
                 .with(adminJwt())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    {"contractorTypeIds": []}
+                    {"contractorTypeId": null}
                     """))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.assignedTypes", empty()));
+            .andExpect(jsonPath("$.assignedType").doesNotExist());
     }
 
     @Test
     void updateAssignment_userNotInKeycloak_returns404() throws Exception {
         when(keycloakAdminService.getKontrahentUsers()).thenReturn(List.of());
 
-        mockMvc.perform(put("/api/admin/kontrahent-users/%s/contractor-types".formatted(USER_ID))
+        mockMvc.perform(put("/api/admin/kontrahent-users/%s/contractor-type".formatted(USER_ID))
                 .with(adminJwt())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    {"contractorTypeIds": []}
+                    {"contractorTypeId": null}
                     """))
             .andExpect(status().isNotFound());
     }
