@@ -18,7 +18,7 @@ if (typeof crypto !== 'undefined') {
   if (!crypto.subtle) {
     Object.defineProperty(crypto, 'subtle', {
       value: {
-        async digest(algorithm: string, data: ArrayBuffer) {
+        async digest(_algorithm: string, data: ArrayBuffer) {
           // Simple SHA-256 not available on HTTP — return hash-like bytes for PKCE
           const bytes = new Uint8Array(data);
           const result = new Uint8Array(32);
