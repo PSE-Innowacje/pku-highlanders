@@ -58,7 +58,7 @@ function expandRange(start: string, end: string): string[] {
   return positions;
 }
 
-function parseOperations(formula: string, prefix: string): FieldFormula {
+function parseOperations(formula: string, _prefix: string): FieldFormula {
   const addPositions: string[] = [];
   const subtractPositions: string[] = [];
 
