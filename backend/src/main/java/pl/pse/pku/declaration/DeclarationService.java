@@ -35,6 +35,31 @@ public class DeclarationService {
     private final DeclarationTypeRepository declarationTypeRepository;
     private final KeycloakAdminService keycloakAdminService;
 
+    @Transactional
+    public List<DeclarationDto> generateDeclarationsForUser(String keycloakUserId) {
+        var assignment = assignmentRepository.findByKeycloakUserId(keycloakUserId)
+            .orElseThrow(() -> new BusinessException("Użytkownik nie ma przypisanego typu kontrahenta"));
+
+        var contractorType = assignment.getContractorType();
+        LocalDateTime now = LocalDateTime.now();
+
+        for (var dt : contractorType.getDeclarationTypes()) {
+            if (!declarationRepository.existsByKeycloakUserIdAndDeclarationTypeId(keycloakUserId, dt.getId())) {
+                var declaration = new Declaration();
+                declaration.setDeclarationNumber(generateNumber(dt, contractorType.getSymbol(), 0));
+                declaration.setStatus(DeclarationStatus.NIE_ZLOZONE);
+                declaration.setKeycloakUserId(keycloakUserId);
+                declaration.setDeclarationType(dt);
+                declaration.setCreatedAt(now);
+                declarationRepository.save(declaration);
+            }
+        }
+
+        return declarationRepository.findByKeycloakUserIdOrderByCreatedAtDesc(keycloakUserId).stream()
+            .map(this::toDto)
+            .toList();
+    }
+
     @Transactional(readOnly = true)
     public List<DeclarationDto> getMyDeclarations(String keycloakUserId) {
         return declarationRepository.findByKeycloakUserIdOrderByCreatedAtDesc(keycloakUserId).stream()

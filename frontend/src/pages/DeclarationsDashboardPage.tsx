@@ -25,6 +25,7 @@ import type { Column } from '../components/AppTable';
 import AppModal from '../components/AppModal';
 import {
   fetchMyDeclarations,
+  generateMyDeclarations,
   fetchDeclarationDetail,
   saveDeclaration,
   submitDeclaration,
@@ -60,6 +61,7 @@ export function DeclarationsDashboardPage({ filter }: Props) {
   const [comment, setComment] = useState('');
   const [saving, setSaving] = useState(false);
   const [fillError, setFillError] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
 
   const formulaMap = useMemo(
     () => detail ? buildFormulaMap(detail.fields) : new Map(),
@@ -93,6 +95,19 @@ export function DeclarationsDashboardPage({ filter }: Props) {
   useEffect(() => {
     loadDeclarations();
   }, []);
+
+  const handleGenerate = async () => {
+    try {
+      setGenerating(true);
+      setError(null);
+      const data = await generateMyDeclarations();
+      setAllDeclarations(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Nieznany błąd');
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const openModal = async (id: number, mode: 'fill' | 'view') => {
     setFillError(null);
@@ -260,6 +275,7 @@ export function DeclarationsDashboardPage({ filter }: Props) {
           {isPending && canFill(row.status) && (
             <Tooltip title="Wypełnij" arrow>
               <IconButton
+                aria-label="Wypełnij"
                 size="small"
                 color="primary"
                 onClick={(e) => {
@@ -274,6 +290,7 @@ export function DeclarationsDashboardPage({ filter }: Props) {
           {isPending && canSubmit(row.status) && (
             <Tooltip title="Wyślij" arrow>
               <IconButton
+                aria-label="Wyślij"
                 size="small"
                 color="success"
                 onClick={(e) => {
@@ -315,9 +332,21 @@ export function DeclarationsDashboardPage({ filter }: Props) {
 
   return (
     <Box>
-      <Typography variant="h5" fontWeight={700} sx={{ mb: 3 }}>
-        {isPending ? 'Lista oświadczeń - niezłożone' : 'Lista oświadczeń - złożone'}
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+        <Typography variant="h5" fontWeight={700}>
+          {isPending ? 'Lista oświadczeń - niezłożone' : 'Lista oświadczeń - złożone'}
+        </Typography>
+        {isPending && (
+          <Button
+            variant="contained"
+            onClick={handleGenerate}
+            disabled={generating}
+            startIcon={generating ? <CircularProgress size={16} /> : undefined}
+          >
+            {generating ? 'Generowanie...' : 'Wygeneruj oświadczenia'}
+          </Button>
+        )}
+      </Box>
 
       {error && (
         <Fade in>

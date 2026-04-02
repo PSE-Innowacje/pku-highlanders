@@ -191,13 +191,14 @@ export function ContractorTypesPage() {
         render: (row) => (
           <Box sx={{ display: 'flex', gap: 0.5 }}>
             <Tooltip title="Edytuj">
-              <IconButton size="small" onClick={() => openEdit(row)}>
+              <IconButton aria-label="Edytuj" size="small" onClick={() => openEdit(row)}>
                 <EditIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-            <Tooltip title={row.system ? 'Typ systemowy nie moze byc usuniety' : 'Usun'}>
+            <Tooltip title={row.system ? 'Typ systemowy nie moze byc usuniety' : 'Usuń'}>
               <span>
                 <IconButton
+                  aria-label="Usuń"
                   size="small"
                   color="error"
                   disabled={row.system}
@@ -224,7 +225,7 @@ export function ContractorTypesPage() {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h5" component="h1">
-          Typy kontrahentow
+          Typy kontrahentów
         </Typography>
         <Button variant="contained" startIcon={<AddIcon />} onClick={openAdd}>
           Dodaj
@@ -258,6 +259,7 @@ export function ContractorTypesPage() {
 
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 600 }}>
             <TextField
+              id="symbol"
               label="Symbol (max 10 znakow)"
               value={formSymbol}
               onChange={(e) => setFormSymbol(e.target.value)}
@@ -268,6 +270,7 @@ export function ContractorTypesPage() {
             />
 
             <TextField
+              id="name"
               label="Nazwa"
               value={formName}
               onChange={(e) => setFormName(e.target.value)}
