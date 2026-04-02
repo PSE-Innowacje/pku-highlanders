@@ -1,0 +1,9 @@
+- Java 25
+- Spring Boot 3.5.11
+- React 19+
+- Vite 8+
+- TypeScript 6+
+- Postgres SQL
+- Keycloak for users and roles management
+- Docker
+- REST API

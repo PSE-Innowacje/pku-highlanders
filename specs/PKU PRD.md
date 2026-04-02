@@ -355,9 +355,7 @@ Zawartość tabeli zależna od typu opłaty i typu kontrahenta (zgodnie z reguł
 > *„Czy na pewno chcesz podpisać i wysłać oświadczenie [numer] ? Anuluj / Zatwierdź"*
 >
 > - **Anuluj** — rezygnacja ze złożenia
-> - **Zatwierdź** — zapisanie i dane wrzucone do pliku np. json
->
-> Po wysłaniu status zmienia się na **Złożone**.
+> - **Zatwierdź** — zapisanie i dane wrzucone do pliku json, który można pobrać. Zatwierdzenie zmienia status na **Złożone**.
 
 ---
 
